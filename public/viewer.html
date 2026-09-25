@@ -36,7 +36,18 @@
       <input id="myName" class="btn" placeholder="Tu nombre" maxlength="40" style="min-width:160px">
       <select id="myRole" class="btn"><option value="listener">Oyente</option><option value="speaker">Expositor</option></select>
       <button class="btn" id="saveMe">Guardar</button>
-      <a class="btn" id="opLink" href="#" style="display:none">Consola del operador →</a>
+      <a class="btn" id="opLink" href="#" style="display:none">Consola avanzada →</a>
+    </div>
+    <div class="row" id="txRow" style="display:none"><b>Transmitir</b>
+      <select id="dev" class="btn" style="min-width:200px"></select>
+      <button class="btn" id="detect" title="Prueba todas las entradas y elige la que tiene señal">🎤 Detectar micrófono</button>
+      <button class="btn primary" id="startMic">▶ Transmitir micrófono</button>
+      <button class="btn" id="startTab">▶ Audio de una pestaña</button>
+      <button class="btn danger" id="stop" disabled>■ Detener</button>
+      <input id="token" class="btn" placeholder="token (si el servidor lo exige)" style="width:170px">
+      <span class="muted" id="txStats"></span>
+      <div class="meter" style="flex-basis:100%"><i id="meter"></i></div>
+      <div class="muted" id="detectInfo" style="font-size:13px;flex-basis:100%"></div>
     </div>
   </div>
 </header>
@@ -60,7 +71,7 @@ const caps = $('#captions');
 let partialEl = null, meta = null, segs = new Map();
 let me = { name: '', role: '' };
 try { me = JSON.parse(localStorage.getItem('me') || '{}'); } catch {}
-function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#opLink').style.display = me.role === 'speaker' ? '' : 'none'; }
+function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#opLink').style.display = me.role === 'speaker' ? '' : 'none'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); }
 if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
 $('#wListener').onclick = () => { saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
 $('#wSpeaker').onclick = () => { saveMe($('#wName').value, 'speaker'); $('#welcome').style.display = 'none'; connect(); };
@@ -74,15 +85,17 @@ fetch('/api/sessions').then(r => r.json()).then(d => {
   meta = d.sessions.find(s => s.id === id); if (!meta) return;
   $('#title').textContent = meta.name; $('#sub').textContent = meta.room || '';
   document.title = `${meta.name} · subtítulos`;
+  const ALL = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文', ko: '한국어', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', sv: 'Svenska', ca: 'Català', eu: 'Euskara', gl: 'Galego', he: 'עברית', id: 'Bahasa Indonesia', uk: 'Українська', vi: 'Tiếng Việt', th: 'ไทย', el: 'Ελληνικά', ro: 'Română', cs: 'Čeština', da: 'Dansk', fi: 'Suomi', no: 'Norsk', hu: 'Magyar' };
   const L = $('#langSel'); L.innerHTML = '';
-  for (const l of meta.targetLangs) {
-    const o = document.createElement('option'); o.value = l; o.textContent = '🌐 ' + (d.langLabels[l] || l); o.selected = l === lang; L.appendChild(o);
-  }
-  L.onchange = () => { lang = L.value; history.replaceState(null, '', `?lang=${lang}${showOrig ? '&orig=1' : ''}`); rerender(); };
+  const g1 = document.createElement('optgroup'); g1.label = 'Esta sala'; const g2 = document.createElement('optgroup'); g2.label = 'Otros idiomas (se traduce a pedido)';
+  for (const l of meta.targetLangs) { const o = document.createElement('option'); o.value = l; o.textContent = '🌐 ' + (ALL[l] || d.langLabels[l] || l); o.selected = l === lang; g1.appendChild(o); }
+  for (const [l, n] of Object.entries(ALL)) if (!meta.targetLangs.includes(l)) { const o = document.createElement('option'); o.value = l; o.textContent = '🌐 ' + n; o.selected = l === lang; g2.appendChild(o); }
+  L.appendChild(g1); L.appendChild(g2);
+  L.onchange = () => { lang = L.value; history.replaceState(null, '', `?lang=${lang}${showOrig ? '&orig=1' : ''}`); if (sock?.readyState === 1) sock.send(JSON.stringify({ type: 'setLang', lang })); rerender(); };
 });
 
 function connect() {
-  const qs = new URLSearchParams({ name: me.name || '', role: me.role || 'listener' });
+  const qs = new URLSearchParams({ name: me.name || '', role: me.role || 'listener', lang });
   const ws = sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/audience/${id}?${qs}`);
   ws.onopen = () => setBadge('live', 'conectado');
   ws.onclose = () => { setBadge('off', 'reconectando'); setTimeout(() => { if (sock === ws) connect(); }, 1500); };
@@ -134,6 +147,70 @@ $('#clear').onclick = () => { segs.clear(); if (partialEl) { partialEl.remove();
 $('#expGo').onclick = () => {
   const q = new URLSearchParams({ lang }); if ($('#expFrom').value) q.set('from', $('#expFrom').value); if ($('#expTo').value) q.set('to', $('#expTo').value);
   const a = document.createElement('a'); a.href = `/api/sessions/${id}/transcript.${$('#expFmt').value}?${q}`; a.download = `${id}-${lang}.${$('#expFmt').value}`; document.body.appendChild(a); a.click(); a.remove();
+};
+// ---- speaker: transmit the microphone from this same page (no operator tab needed)
+let txWs, ctx, node, stream, t0, bytes = 0;
+const tlog = (m) => console.log('[tx]', m);
+$('#token').value = localStorage.getItem('ingestToken') || '';
+async function listDevices() {
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop())); } catch {}
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  const cur = $('#dev').value;
+  $('#dev').innerHTML = devs.map(d => `<option value="${d.deviceId}">${d.label || 'Entrada ' + d.deviceId.slice(0, 6)}</option>`).join('');
+  if (cur) $('#dev').value = cur;
+}
+function openTx() {
+  return new Promise((res, rej) => {
+    const tok = $('#token').value.trim(); localStorage.setItem('ingestToken', tok);
+    txWs = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/ingest/${id}?source=browser${tok ? '&token=' + encodeURIComponent(tok) : ''}`);
+    txWs.binaryType = 'arraybuffer';
+    txWs.onopen = () => res(); txWs.onerror = () => rej(new Error('no se pudo conectar (¿token?)'));
+    txWs.onclose = () => { if (stream) setTimeout(() => openTx().catch(() => {}), 1500); };
+  });
+}
+async function startTx(kind) {
+  try {
+    if (kind === 'tab') {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false } });
+      if (!stream.getAudioTracks().length) throw new Error('la pestaña no compartió audio (marcá "Compartir audio")');
+      stream.getVideoTracks().forEach(t => t.stop());
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: $('#dev').value ? { exact: $('#dev').value } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
+    }
+    await openTx();
+    ctx = new AudioContext(); await ctx.audioWorklet.addModule('/pcm-worklet.js');
+    const src = ctx.createMediaStreamSource(stream); node = new AudioWorkletNode(ctx, 'pcm16-downsampler');
+    node.port.onmessage = (e) => { if (txWs?.readyState === 1) { txWs.send(e.data.pcm); bytes += e.data.pcm.byteLength; } $('#meter').style.width = Math.min(100, e.data.peak * 140) + '%'; };
+    src.connect(node); t0 = Date.now();
+    $('#startMic').disabled = $('#startTab').disabled = true; $('#stop').disabled = false;
+    stream.getAudioTracks()[0].onended = stopTx;
+  } catch (e) { alert(e.message); }
+}
+function stopTx() { stream?.getTracks().forEach(t => t.stop()); stream = null; node?.disconnect(); ctx?.close(); txWs?.close(); $('#startMic').disabled = $('#startTab').disabled = false; $('#stop').disabled = true; $('#meter').style.width = '0'; }
+$('#startMic').onclick = () => startTx('mic'); $('#startTab').onclick = () => startTx('tab'); $('#stop').onclick = stopTx;
+setInterval(() => { if (t0 && stream) $('#txStats').textContent = `${Math.round((Date.now() - t0) / 1000)} s · ${Math.round(bytes / 1024)} KB`; }, 1000);
+$('#detect').onclick = async () => {
+  const info = $('#detectInfo'); const btn = $('#detect'); btn.disabled = true;
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop()));
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    if (!devs.length) throw new Error('Windows no muestra ninguna entrada de audio.');
+    const results = [];
+    for (const d of devs) {
+      info.textContent = `Probando "${d.label}"… hablá ahora (${results.length + 1}/${devs.length})`;
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: d.deviceId } } });
+        const c = new AudioContext(); const an = c.createAnalyser(); an.fftSize = 2048; c.createMediaStreamSource(s).connect(an);
+        const buf = new Float32Array(an.fftSize); let peak = 0; const t = Date.now();
+        while (Date.now() - t < 2000) { await new Promise(r => setTimeout(r, 100)); an.getFloatTimeDomainData(buf); for (const v of buf) { const a = Math.abs(v); if (a > peak) peak = a; } }
+        s.getTracks().forEach(x => x.stop()); c.close(); results.push({ d, peak });
+      } catch (e) { results.push({ d, peak: -1 }); }
+    }
+    results.sort((a, b) => b.peak - a.peak); const best = results[0]; await listDevices();
+    if (best.peak > 0.02) { $('#dev').value = best.d.deviceId; info.innerHTML = `✅ Micrófono con señal: <b>${best.d.label}</b> (nivel ${(best.peak * 100).toFixed(0)}%). Apretá Transmitir.`; }
+    else info.innerHTML = `⚠️ Ninguna entrada registró voz (${results.map(r => r.d.label).join(' · ')}). Revisá mute/ganancia del micrófono.`;
+  } catch (e) { info.textContent = 'Error: ' + e.message; }
+  btn.disabled = false;
 };
 $('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
 function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }

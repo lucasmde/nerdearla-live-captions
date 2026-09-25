@@ -162,6 +162,24 @@ export class LiveSession {
       .finally(() => { p.busy = false; });
   }
 
+  /** A viewer asked for a language this session does not translate yet: add it and back-fill recent history. */
+  async addTarget(lang) {
+    lang = normLang(lang);
+    if (!lang || !/^[a-z]{2,3}$/.test(lang) || this.def.targetLangs.includes(lang)) return;
+    if (this.def.targetLangs.length >= 12) return; // sanity cap
+    this.def.targetLangs.push(lang);
+    this.log('lang', `added target ${lang} on request`);
+    const hist = (this.hub.history.get(this.id) || []).filter((seg) => !seg.tr?.[lang]).slice(-15);
+    if (!hist.length) return;
+    const same = hist.filter((seg) => seg.lang === lang); for (const seg of same) this.hub.translation(this.id, seg.id, lang, seg.text);
+    const todo = hist.filter((seg) => seg.lang !== lang);
+    if (!todo.length) return;
+    try {
+      const out = await this.translator.translateBatch(todo.map((seg) => seg.text), lang);
+      todo.forEach((seg, i) => { this.hub.translation(this.id, seg.id, lang, out[i]); this.append({ id: seg.id, tr: { [lang]: out[i] } }); });
+    } catch (e) { this.log('translate', `backfill ${lang}: ${e?.message || e}`); }
+  }
+
   append(obj) {
     fs.appendFile(this.logFile, JSON.stringify(obj) + '\n', () => {});
   }

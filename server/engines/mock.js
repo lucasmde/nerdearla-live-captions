@@ -33,6 +33,7 @@ export class MockTranscriber {
 }
 
 export const mockTranslator = {
+  async translateBatch(texts, target) { return texts.map((t) => `[${target}] ${t}`); },
   async translateMany(text, targets) {
     await new Promise((r) => setTimeout(r, 250));
     return Object.fromEntries(targets.map((t) => [t, `[${t}] ${text}`]));
