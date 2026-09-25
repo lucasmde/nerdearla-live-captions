@@ -91,10 +91,12 @@ function roomCard(room) {
       <div class="toolbar">
         <a class="btn" href="/operator/${room.id}" target="_blank">operador</a>
         <a class="btn" href="/s/${room.id}?lang=es" target="_blank">audiencia</a>
+        <button class="btn" data-gen-code="${room.id}">🔑 Código de orador</button>
         <button class="btn danger" data-del-room="${room.id}">Borrar sala</button>
       </div>
     </div>
     <div id="msg-${room.id}" class="msg"></div>
+    <div class="codeBox muted" style="font-size:13px;margin:4px 0 10px;display:none"></div>
     <div class="roomForm" style="margin-top:10px">
       <div class="field">Nombre <input class="r_name" value="${esc(room.name)}"></div>
       <div class="field">Ubicación <input class="r_room" value="${esc(room.room)}"></div>
@@ -124,7 +126,20 @@ function roomCard(room) {
   </div>`;
 }
 
+function showCode(box, roomId, d) {
+  if (!d || !d.code) { box.style.display = 'none'; return; }
+  const mins = Math.max(0, Math.round((d.expiresAt - Date.now()) / 60000));
+  box.style.display = 'block';
+  box.innerHTML = `🔑 Código de orador de esta sala: <b style="font-size:20px;letter-spacing:3px">${d.code}</b> · válido ${mins} min · dictáselo a quien va a hablar: entra a <a href="/operator/${roomId}" target="_blank">/operator/${roomId}</a>, inicia sesión con Google o GitHub, y lo pone ahí. Solo lo habilita para transmitir en esta sala.`;
+}
+
 function bindRoomCard(card, room) {
+  const codeBox = card.querySelector('.codeBox');
+  api('GET', `/api/admin/rooms/${room.id}/speaker-code`).then((d) => showCode(codeBox, room.id, d)).catch(() => {});
+  card.querySelector('[data-gen-code]').onclick = async () => {
+    try { const d = await api('POST', `/api/admin/rooms/${room.id}/speaker-code`); showCode(codeBox, room.id, d); }
+    catch (e) { flash(card.querySelector('.msg'), false, e.message); }
+  };
   card.querySelector('[data-save-room]').onclick = async () => {
     const msg = $('#msg-' + room.id, card.parentElement) || card.querySelector('.msg');
     try {

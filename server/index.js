@@ -16,6 +16,24 @@ const auth = makeAuth(config);
 const mailer = makeMailer(config, (t, m) => console.log(`[${t}]`, m));
 const sessions = new Map();
 
+// Per-room "speaker codes": lets an admin grant mic access to whoever is about to speak
+// in one specific room, without knowing their e-mail address ahead of time (useful when
+// speakers aren't known in advance, e.g. a multi-track event with last-minute lineups).
+// Redeeming a code (after signing in with Google/GitHub) only grants canSpeak for that
+// one room — not the whole event, unlike the static SPEAKER_EMAILS allowlist.
+const roomCodes = new Map(); // roomId -> { code, expiresAt }
+const roomSpeakers = new Map(); // roomId -> Map(sub -> expiresAt)
+const CODE_TTL_MS = 4 * 60 * 60 * 1000; // 4h: one talk plus setup/buffer time
+function genSpeakerCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
+function isRoomSpeaker(roomId, sub) {
+  const m = roomSpeakers.get(roomId);
+  if (!sub || !m) return false;
+  const exp = m.get(sub);
+  if (!exp) return false;
+  if (Date.now() > exp) { m.delete(sub); return false; }
+  return true;
+}
+
 for (const def of sessionStore.list()) sessions.set(def.id, new LiveSession(def, config, hub));
 
 // Keep the live `sessions` map (one LiveSession per room) in sync with the on-disk store
@@ -86,6 +104,21 @@ app.post('/api/auth/google', async (req, res) => {
 });
 app.post('/api/auth/logout', (_req, res) => { res.setHeader('Set-Cookie', auth.clearCookie()); res.json({ ok: true }); });
 
+// Redeem a room's speaker code (see roomCodes above): any signed-in Google/GitHub account
+// can claim it, but it only grants canSpeak for this one room, and only until it expires.
+app.post('/api/sessions/:id/speaker-code', (req, res) => {
+  const me = auth.fromRequest(req);
+  if (!me) return res.status(401).json({ error: 'Iniciá sesión con Google o GitHub primero.' });
+  if (!sessions.has(req.params.id)) return res.status(404).json({ error: 'esa sala no existe' });
+  const entry = roomCodes.get(req.params.id);
+  const code = String(req.body?.code || '').trim();
+  if (!entry || Date.now() > entry.expiresAt) return res.status(400).json({ error: 'No hay un código activo para esta sala. Pedile uno nuevo al organizador.' });
+  if (!/^\d{6}$/.test(code) || code !== entry.code) return res.status(400).json({ error: 'Código incorrecto.' });
+  if (!roomSpeakers.has(req.params.id)) roomSpeakers.set(req.params.id, new Map());
+  roomSpeakers.get(req.params.id).set(me.sub, entry.expiresAt);
+  res.json({ ok: true, expiresAt: entry.expiresAt });
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true, engine: config.engine, sessions: sessions.size }));
 
 app.get('/api/sessions', (_req, res) => {
@@ -135,6 +168,17 @@ app.patch('/api/admin/rooms/:id/agenda/:idx', requireAdmin, (req, res) => {
 app.delete('/api/admin/rooms/:id/agenda/:idx', requireAdmin, (req, res) => {
   try { sessionStore.removeAgenda(req.params.id, Number(req.params.idx)); syncSessionsFromStore(); res.json({ ok: true }); }
   catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
+// Generate/consult a one-time speaker code for a room (see roomCodes above).
+app.post('/api/admin/rooms/:id/speaker-code', requireAdmin, (req, res) => {
+  if (!sessionStore.get(req.params.id)) return res.status(404).json({ error: 'esa sala no existe' });
+  const entry = { code: genSpeakerCode(), expiresAt: Date.now() + CODE_TTL_MS };
+  roomCodes.set(req.params.id, entry);
+  res.json(entry);
+});
+app.get('/api/admin/rooms/:id/speaker-code', requireAdmin, (req, res) => {
+  const entry = roomCodes.get(req.params.id);
+  res.json(entry && Date.now() < entry.expiresAt ? entry : null);
 });
 app.get('/operator/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'operator.html')) : res.status(404).send('unknown session'));
 
@@ -278,7 +322,7 @@ server.on('upgrade', (req, socket, head) => {
   if (kind === 'ingest') {
     const tokenOk = config.ingestToken && url.searchParams.get('token') === config.ingestToken;
     const me = auth.fromRequest(req);
-    const sessionOk = me && me.canSpeak;
+    const sessionOk = me && (me.canSpeak || isRoomSpeaker(id, me.sub));
     const open = !config.ingestToken && auth.canParticipate(null);
     if (!tokenOk && !sessionOk && !open) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return; }
   }
@@ -288,7 +332,7 @@ server.on('upgrade', (req, socket, head) => {
       const me = auth.fromRequest(req);
       const wantsSpeaker = url.searchParams.get('role') === 'speaker';
       const who = me
-        ? { name: me.name, picture: me.picture, email: me.email, role: wantsSpeaker && me.canSpeak ? 'speaker' : 'listener', lang: url.searchParams.get('lang') }
+        ? { name: me.name, picture: me.picture, email: me.email, role: wantsSpeaker && (me.canSpeak || isRoomSpeaker(id, me.sub)) ? 'speaker' : 'listener', lang: url.searchParams.get('lang') }
         : { name: guestName(url.searchParams.get('name')), role: auth.canParticipate(null) ? url.searchParams.get('role') : 'listener', lang: url.searchParams.get('lang') };
       const denied = (what) => ws.send(JSON.stringify({ type: 'toast', text: `Iniciá sesión con Google o GitHub para ${what}.` }));
       hub.subscribe(id, ws, who);

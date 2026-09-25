@@ -33,6 +33,15 @@
     <div class="meter"><i id="meter"></i></div>
     <p class="muted" style="font-size:13px;margin:0">Consejo: conectá la salida de la consola de sonido a la entrada de línea de esta computadora y elegila arriba. Mantené esta pestaña abierta durante toda la charla. Vista de audiencia: <a id="vlink" href="#">abrir</a> · Overlay para OBS: <a id="olink" href="#">abrir</a></p>
   </div>
+  <div class="card" id="speakerGate" style="margin-top:14px;display:none">
+    <b class="display" style="font-size:15px">Habilitar como orador de esta sala</b>
+    <p class="muted" id="sgMsg" style="font-size:13px;margin:6px 0"></p>
+    <div id="sgLogin" style="margin:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+    <div class="toolbar" id="sgCodeRow" style="display:none">
+      <input id="sgCode" placeholder="Código de 6 dígitos" maxlength="6" inputmode="numeric" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);width:150px;letter-spacing:3px;font-size:16px">
+      <button class="btn primary" id="sgConfirm">Confirmar</button>
+    </div>
+  </div>
   <div class="card" style="margin-top:14px">
     <b class="muted" style="font-size:13px">Últimos subtítulos</b>
     <div id="preview" style="font-size:18px;line-height:1.4;min-height:60px"></div>
@@ -138,6 +147,49 @@ $('#detect').onclick = async () => {
   btn.disabled = false;
 }; $('#startTab').onclick = () => start('tab'); $('#stop').onclick = stop;
 setInterval(() => { if (t0 && stream) $('#stats').textContent = `${Math.round((Date.now() - t0) / 1000)} s · ${Math.round(bytes / 1024)} KB`; }, 1000);
+
+// Sin INGEST_TOKEN, transmitir requiere estar logueado y con permiso de orador (global,
+// vía SPEAKER_EMAILS) o, si el organizador te dio uno, el código de orador de esta sala.
+async function checkSpeakerAccess() {
+  const meInfo = await (await fetch('/api/me')).json();
+  const cfg = await (await fetch('/api/config')).json();
+  const gate = $('#speakerGate');
+  if (meInfo && meInfo.canSpeak) { gate.style.display = 'none'; return; }
+  gate.style.display = 'block';
+  if (!meInfo) {
+    $('#sgMsg').textContent = 'Iniciá sesión con Google o GitHub y pedile al organizador el código de esta sala.';
+    $('#sgLogin').innerHTML = '';
+    if (cfg.googleClientId) {
+      const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+      s.onload = () => {
+        google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: async (resp) => {
+          await fetch('/api/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
+          checkSpeakerAccess();
+        } });
+        google.accounts.id.renderButton($('#sgLogin'), { theme: 'filled_black', size: 'medium', text: 'signin_with', locale: 'es' });
+      };
+      document.head.appendChild(s);
+    }
+    if (cfg.github) {
+      const a = document.createElement('a'); a.className = 'btn'; a.href = `/api/auth/github?back=${encodeURIComponent(location.pathname)}`; a.textContent = 'Entrar con GitHub';
+      $('#sgLogin').appendChild(a);
+    }
+    $('#sgCodeRow').style.display = 'none';
+  } else {
+    $('#sgMsg').textContent = `Sesión iniciada como ${meInfo.email}. Pedile al organizador el código de orador de esta sala y ponelo acá:`;
+    $('#sgLogin').innerHTML = '';
+    $('#sgCodeRow').style.display = 'flex';
+  }
+}
+$('#sgConfirm').onclick = async () => {
+  try {
+    const r = await fetch(`/api/sessions/${id}/speaker-code`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: $('#sgCode').value.trim() }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'código incorrecto');
+    $('#speakerGate').innerHTML = '<b class="display" style="font-size:15px">✅ Ya podés transmitir en esta sala.</b>';
+  } catch (e) { alert(e.message); }
+};
+checkSpeakerAccess();
 
 // preview what the audience sees (original language)
 (function preview() {
