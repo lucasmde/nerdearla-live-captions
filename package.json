@@ -1,0 +1,20 @@
+{
+  "name": "nerdearla-live-captions",
+  "version": "0.1.0",
+  "description": "Open-source real-time transcription and translation for multi-stage conferences (Gemini Live API).",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "ingest": "node tools/ingest.js",
+    "mock": "ENGINE=mock node server/index.js"
+  },
+  "engines": { "node": ">=20" },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@google/genai": "^2.24.0",
+    "express": "^5.2.1",
+    "ws": "^8.21.3"
+  }
+}

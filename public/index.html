@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subtítulos en vivo</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div><h1>Subtítulos en vivo · Live captions</h1><div class="sub">Elegí tu sesión y tu idioma · Pick your session and language</div></div>
+  <span class="badge" id="engine"><span class="dot"></span><span>…</span></span>
+</header>
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+  <p class="muted" style="margin-top:28px;font-size:13px">Open source · <a href="https://github.com/" id="repo">GitHub</a></p>
+</div>
+<script>
+async function load() {
+  const r = await fetch('/api/sessions'); const d = await r.json();
+  document.getElementById('engine').innerHTML = `<span class="dot"></span>${d.engine === 'mock' ? 'modo demo' : 'Gemini'}`;
+  const grid = document.getElementById('grid'); grid.innerHTML = '';
+  for (const s of d.sessions) {
+    const live = s.status?.live && s.source;
+    const el = document.createElement('div'); el.className = 'card';
+    el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+        <h3>${esc(s.name)}</h3><span class="badge ${live ? 'live' : 'off'}"><span class="dot"></span>${live ? 'en vivo' : 'sin audio'}</span></div>
+      <div class="room">${esc(s.room || '')} · ${s.viewers} viendo</div>
+      <div class="langs">${s.targetLangs.map(l => `<a class="pill" href="/s/${s.id}?lang=${l}">${esc(d.langLabels[l] || l)}</a>`).join('')}</div>`;
+    grid.appendChild(el);
+  }
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+load(); setInterval(load, 5000);
+</script>
+</body>
+</html>

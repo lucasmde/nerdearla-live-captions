@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subtítulos en vivo</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
+  <div class="toolbar">
+    <div class="langs" id="langs"></div>
+    <button class="btn" id="orig" title="Mostrar también el idioma original">orig</button>
+    <button class="btn" id="minus">A−</button><button class="btn" id="plus">A+</button>
+    <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
+  </div>
+</header>
+<main class="captions" id="captions"><p class="seg waiting" id="waiting">Esperando audio de la sesión…</p></main>
+<script>
+const id = location.pathname.split('/').pop();
+const q = new URLSearchParams(location.search);
+let lang = q.get('lang') || 'es';
+let showOrig = q.get('orig') === '1';
+let fs = Number(q.get('fs') || localStorage.getItem('fs') || 0);
+if (q.get('overlay') === '1') document.body.classList.add('overlay');
+if (fs) document.documentElement.style.setProperty('--fs', fs + 'px');
+const $ = (s) => document.querySelector(s);
+const caps = $('#captions');
+let partialEl = null, meta = null, segs = new Map();
+
+fetch('/api/sessions').then(r => r.json()).then(d => {
+  meta = d.sessions.find(s => s.id === id); if (!meta) return;
+  $('#title').textContent = meta.name; $('#sub').textContent = meta.room || '';
+  document.title = `${meta.name} · subtítulos`;
+  const L = $('#langs'); L.innerHTML = '';
+  for (const l of meta.targetLangs) {
+    const b = document.createElement('button'); b.className = 'pill' + (l === lang ? ' active' : ''); b.textContent = d.langLabels[l] || l;
+    b.onclick = () => { lang = l; history.replaceState(null, '', `?lang=${l}${showOrig ? '&orig=1' : ''}`); [...L.children].forEach(c => c.classList.remove('active')); b.classList.add('active'); rerender(); };
+    L.appendChild(b);
+  }
+});
+
+function connect() {
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/audience/${id}`);
+  ws.onopen = () => setBadge('live', 'conectado');
+  ws.onclose = () => { setBadge('off', 'reconectando'); setTimeout(connect, 1500); };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); }
+    else if (m.type === 'final') { if (partialEl) { partialEl.remove(); partialEl = null; } segs.set(m.segment.id, m.segment); trim(); rerender(); }
+    else if (m.type === 'translation') { const s = segs.get(m.segId); if (s) { s.tr = s.tr || {}; s.tr[m.lang] = m.text; rerender(); } }
+    else if (m.type === 'partial') { renderPartial(m); }
+    else if (m.type === 'status') status(m.status);
+  };
+}
+function status(s) { if (s.source && s.live) setBadge('live', 'en vivo'); else if (s.error) setBadge('off', 'error'); else setBadge('', 'sin audio'); }
+function setBadge(cls, txt) { const b = $('#st'); b.className = 'badge ' + cls; b.lastElementChild.textContent = txt; }
+function trim() { while (segs.size > 40) segs.delete(segs.keys().next().value); }
+
+function textFor(s) {
+  if (s.lang === lang) return s.text;
+  if (s.tr && s.tr[lang]) return s.tr[lang];
+  return null; // translation pending
+}
+function rerender() {
+  const frag = document.createDocumentFragment();
+  let any = false;
+  for (const s of segs.values()) {
+    const t = textFor(s);
+    const p = document.createElement('p'); p.className = 'seg';
+    if (t == null) { p.classList.add('partial'); p.textContent = s.text; }
+    else { p.textContent = t; if (showOrig && s.lang !== lang) { const o = document.createElement('span'); o.className = 'orig'; o.textContent = s.text; p.appendChild(o); } }
+    frag.appendChild(p); any = true;
+  }
+  const keepPartial = partialEl;
+  caps.innerHTML = ''; caps.appendChild(frag);
+  if (!any) caps.innerHTML = '<p class="seg waiting">Esperando audio de la sesión…</p>';
+  if (keepPartial) { partialEl = keepPartial; caps.appendChild(partialEl); }
+  scroll();
+}
+function renderPartial(m) {
+  if (!m.text) return;
+  if (!partialEl) { partialEl = document.createElement('p'); partialEl.className = 'seg partial'; caps.appendChild(partialEl); }
+  const same = m.lang === lang;
+  partialEl.textContent = same ? m.text : (m.tr || m.text);
+  if (showOrig && !same && m.tr) { const o = document.createElement('span'); o.className = 'orig'; o.textContent = m.text; partialEl.appendChild(o); }
+  scroll();
+}
+function scroll() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+$('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
+function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }
+$('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('primary', showOrig); rerender(); };
+if (showOrig) $('#orig').classList.add('primary');
+connect();
+</script>
+</body>
+</html>

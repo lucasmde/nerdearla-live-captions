@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operador · Live captions</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div><h1 id="title">Operador</h1><div class="sub">Consola de escenario · envía el audio del escenario al servidor</div></div>
+  <span class="badge" id="st"><span class="dot"></span><span>desconectado</span></span>
+</header>
+<div class="wrap" style="max-width:820px">
+  <div class="card">
+    <div class="kv">
+      <b>Sesión</b><span id="sname">…</span>
+      <b>Fuente de audio</b><select id="dev"></select>
+      <b>Token</b><input id="token" placeholder="INGEST_TOKEN (si el servidor lo exige)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:#1a2030;color:var(--text)">
+    </div>
+    <div class="toolbar" style="margin-top:8px">
+      <button class="btn primary" id="startMic">▶ Iniciar con micrófono / entrada</button>
+      <button class="btn" id="startTab">▶ Capturar audio de una pestaña</button>
+      <button class="btn danger" id="stop" disabled>■ Detener</button>
+      <span class="spacer"></span>
+      <span class="muted" id="stats">0 s · 0 KB</span>
+    </div>
+    <div class="meter"><i id="meter"></i></div>
+    <p class="muted" style="font-size:13px;margin:0">Consejo: conectá la salida de la consola de sonido a la entrada de línea de esta computadora y elegila arriba. Mantené esta pestaña abierta durante toda la charla. Vista de audiencia: <a id="vlink" href="#">abrir</a> · Overlay para OBS: <a id="olink" href="#">abrir</a></p>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <b class="muted" style="font-size:13px">Últimos subtítulos</b>
+    <div id="preview" style="font-size:18px;line-height:1.4;min-height:60px"></div>
+  </div>
+  <div class="card" style="margin-top:14px"><div class="log" id="log"></div></div>
+</div>
+<script>
+const id = location.pathname.split('/').pop();
+const $ = (s) => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+$('#token').value = q.get('token') || localStorage.getItem('ingestToken') || '';
+$('#vlink').href = `/s/${id}?lang=es`; $('#olink').href = `/s/${id}?lang=es&overlay=1`;
+let ws, ctx, node, stream, t0, bytes = 0;
+const log = (m) => { const l = $('#log'); l.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`; l.scrollTop = l.scrollHeight; };
+const setBadge = (cls, txt) => { const b = $('#st'); b.className = 'badge ' + cls; b.lastElementChild.textContent = txt; };
+
+fetch('/api/sessions').then(r => r.json()).then(d => { const s = d.sessions.find(x => x.id === id); $('#sname').textContent = `${s.name} (${s.id}) · idioma: ${s.sourceLang} → ${s.targetLangs.join(', ')}`; $('#title').textContent = `Operador · ${s.name}`; });
+
+async function listDevices() {
+  try { await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop())); } catch {}
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  $('#dev').innerHTML = devs.map(d => `<option value="${d.deviceId}">${d.label || 'Entrada ' + d.deviceId.slice(0, 6)}</option>`).join('');
+}
+listDevices();
+
+function openWs() {
+  return new Promise((res, rej) => {
+    const tok = $('#token').value.trim(); localStorage.setItem('ingestToken', tok);
+    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/ingest/${id}?source=browser${tok ? '&token=' + encodeURIComponent(tok) : ''}`);
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = () => { setBadge('live', 'transmitiendo'); log('WebSocket conectado'); res(); };
+    ws.onerror = () => rej(new Error('no se pudo conectar (¿token?)'));
+    ws.onclose = () => { setBadge('off', 'desconectado'); log('WebSocket cerrado'); if (stream) setTimeout(() => openWs().catch(() => {}), 1500); };
+  });
+}
+
+async function start(kind) {
+  try {
+    if (kind === 'tab') {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false } });
+      if (!stream.getAudioTracks().length) throw new Error('la pestaña no compartió audio (marcá "Compartir audio")');
+      stream.getVideoTracks().forEach(t => t.stop());
+    } else {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: $('#dev').value ? { exact: $('#dev').value } : undefined, echoCancellation: false, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
+    }
+    await openWs();
+    ctx = new AudioContext();
+    await ctx.audioWorklet.addModule('/pcm-worklet.js');
+    const src = ctx.createMediaStreamSource(stream);
+    node = new AudioWorkletNode(ctx, 'pcm16-downsampler');
+    node.port.onmessage = (e) => {
+      if (ws?.readyState === 1) { ws.send(e.data.pcm); bytes += e.data.pcm.byteLength; }
+      $('#meter').style.width = Math.min(100, e.data.peak * 140) + '%';
+    };
+    src.connect(node); // no output: the worklet only posts messages
+    t0 = Date.now();
+    $('#startMic').disabled = $('#startTab').disabled = true; $('#stop').disabled = false;
+    log(`captura iniciada (${kind}) @ ${ctx.sampleRate} Hz → 16 kHz PCM`);
+    stream.getAudioTracks()[0].onended = stop;
+  } catch (e) { log('error: ' + e.message); alert(e.message); }
+}
+function stop() {
+  stream?.getTracks().forEach(t => t.stop()); stream = null;
+  node?.disconnect(); ctx?.close(); ws?.close();
+  $('#startMic').disabled = $('#startTab').disabled = false; $('#stop').disabled = true; $('#meter').style.width = '0';
+  log('captura detenida');
+}
+$('#startMic').onclick = () => start('mic'); $('#startTab').onclick = () => start('tab'); $('#stop').onclick = stop;
+setInterval(() => { if (t0 && stream) $('#stats').textContent = `${Math.round((Date.now() - t0) / 1000)} s · ${Math.round(bytes / 1024)} KB`; }, 1000);
+
+// preview what the audience sees (original language)
+(function preview() {
+  const a = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/audience/${id}`);
+  const lines = []; let partial = '';
+  a.onmessage = (ev) => { const m = JSON.parse(ev.data);
+    if (m.type === 'final') { lines.push(m.segment.text); if (lines.length > 3) lines.shift(); partial = ''; }
+    if (m.type === 'partial') partial = m.text;
+    if (m.type === 'status' && m.status.error) log('motor: ' + m.status.error);
+    $('#preview').innerHTML = lines.map(l => `<div>${l.replace(/</g, '&lt;')}</div>`).join('') + (partial ? `<div class="muted">${partial.replace(/</g, '&lt;')}</div>` : ''); };
+  a.onclose = () => setTimeout(preview, 2000);
+})();
+</script>
+</body>
+</html>

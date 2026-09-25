@@ -1,0 +1,10 @@
+{
+  "vocabulary": ["Nerdearla", "Konex", "Kubernetes", "PostgreSQL", "Gemini", "Gemma", "open source"],
+  "sessions": [
+    { "id": "main", "name": "Main Stage", "room": "Auditorio", "sourceLang": "auto", "targetLangs": ["es", "en"] },
+    { "id": "stage-2", "name": "Stage 2", "room": "Sala B", "sourceLang": "en", "targetLangs": ["es", "en"] },
+    { "id": "stage-3", "name": "Stage 3", "room": "Sala C", "sourceLang": "es", "targetLangs": ["es", "en"] },
+    { "id": "workshop-1", "name": "Workshop 1", "room": "Lab 1", "sourceLang": "auto", "targetLangs": ["es", "en", "pt"] },
+    { "id": "workshop-2", "name": "Workshop 2", "room": "Lab 2", "sourceLang": "auto", "targetLangs": ["es", "en"] }
+  ]
+}

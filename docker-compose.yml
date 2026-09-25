@@ -1,0 +1,17 @@
+services:
+  captions:
+    build: .
+    image: nerdearla-live-captions
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    env_file: .env
+    volumes:
+      - ./sessions.json:/app/sessions.json:ro
+      - ./transcripts:/app/transcripts
+  # Optional: local translation with Gemma via Ollama (set TRANSLATOR=ollama, OLLAMA_URL=http://ollama:11434)
+  # ollama:
+  #   image: ollama/ollama
+  #   volumes: ["ollama:/root/.ollama"]
+  #   ports: ["11434:11434"]
+# volumes:
+#   ollama: {}
