@@ -22,7 +22,8 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 - **Vista para la audiencia.** `/` lista las sesiones; `/s/<id>?lang=es` muestra los subtítulos grandes, con selector de idioma, tamaño de letra, opción de ver también el original y un **modo overlay** (`&overlay=1`) con fondo transparente para usar como *browser source* en OBS o en la pantalla de la sala.
 - **Tres formas de meter el audio.** Consola web del operador (micrófono o entrada de línea de la notebook del escenario, o el audio de una pestaña), o `tools/ingest.js`, que empuja **cualquier** fuente vía ffmpeg: archivo, RTMP/SRT/HLS del streaming, o dispositivo de captura.
 - **Sesiones largas.** La Live API corta a los ~10 min; el servidor rota la sesión antes de eso y ante `GoAway`, abriendo la nueva antes de cerrar la vieja y bufereando el audio, así una charla de 50 min no pierde nada.
-- **Transcripción completa.** Cada sesión deja un `.jsonl` y se puede bajar como SRT (`/api/sessions/<id>/transcript.srt?lang=es`) o JSON para publicar con el video.
+- **Transcripción completa.** Cada sesión deja un `.jsonl` y se puede bajar como SRT, VTT, texto o JSON (`/api/sessions/<id>/transcript.srt?lang=es`) para publicar con el video.
+- **Panel de producción.** `/admin` muestra por sesión: si llega audio, estado del motor, hace cuánto salió el último subtítulo, latencia de traducción, audiencia conectada y errores.
 - **Vocabulario propio.** Nombres de la conferencia, productos y siglas en `sessions.json` (`vocabulary`) para mejorar el reconocimiento.
 - **Sin vendor lock-in.** Motores intercambiables: `ENGINE=mock` para probar sin key, `TRANSLATOR=ollama` para traducir con Gemma local.
 

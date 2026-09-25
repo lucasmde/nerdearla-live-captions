@@ -25,6 +25,7 @@ app.get('/api/sessions', (_req, res) => {
 
 // Pretty URLs for the audience viewer and the operator console.
 app.get('/s/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'viewer.html')) : res.status(404).send('unknown session'));
+app.get('/admin', (_req, res) => res.sendFile(path.join(config.root, 'public', 'admin.html')));
 app.get('/operator/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'operator.html')) : res.status(404).send('unknown session'));
 
 // Transcript export (SRT) — original or a target language.
@@ -42,15 +43,17 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
   }
   const list = [...segs.values()];
   if (req.params.fmt === 'json') return res.json(list);
+  const vtt = req.params.fmt === 'vtt';
   const pad = (n, w = 2) => String(n).padStart(w, '0');
-  const ts = (ms) => `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms / 60000) % 60)}:${pad(Math.floor(ms / 1000) % 60)},${pad(ms % 1000, 3)}`;
-  const out = list.map((seg, i) => {
+  const ts = (ms) => `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms / 60000) % 60)}:${pad(Math.floor(ms / 1000) % 60)}${vtt ? '.' : ','}${pad(ms % 1000, 3)}`;
+  const body = list.map((seg, i) => {
     const next = list[i + 1];
     const end = next ? next.rel - 100 : seg.rel + 4000;
     const text = lang && seg.tr?.[lang] ? seg.tr[lang] : seg.text;
-    return `${i + 1}\n${ts(seg.rel)} --> ${ts(Math.max(end, seg.rel + 800))}\n${text}\n`;
+    return `${vtt ? '' : (i + 1) + '\n'}${ts(seg.rel)} --> ${ts(Math.max(end, seg.rel + 800))}\n${text}\n`;
   }).join('\n');
-  res.type('text/plain').send(out);
+  if (req.params.fmt === 'txt') return res.type('text/plain').send(list.map((seg) => (lang && seg.tr?.[lang]) || seg.text).join('\n'));
+  res.type(vtt ? 'text/vtt' : 'text/plain').send((vtt ? 'WEBVTT\n\n' : '') + body);
 });
 
 const server = http.createServer(app);
