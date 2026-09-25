@@ -154,3 +154,5 @@ body.tv .captions { --fs: 52px; padding: 30px 320px 40px 40px; min-height: 100vh
 .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .brand .sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60vw; }
 @media (max-width: 700px) { .brand .logo { display: none; } }
+body.with-chat .popover { right: 356px; }
+#wName.err { border-color: var(--red); }

@@ -76,7 +76,7 @@
     <div class="muted" id="gErr" style="font-size:12px;color:var(--red)"></div>
   </div>
   <div id="guestBox">
-    <input id="wName" class="btn" placeholder="Tu nombre (opcional)" maxlength="40" style="width:100%;margin-bottom:10px;box-sizing:border-box">
+    <input id="wName" class="btn" placeholder="Tu nombre" maxlength="40" style="width:100%;margin-bottom:10px;box-sizing:border-box">
     <div class="roles"><button class="btn primary" id="wListener">🎧 Entrar como oyente<small>Leer subtítulos, chatear, levantar la mano</small></button><button class="btn" id="wSpeaker">🎤 Entrar como expositor<small>Transmitir el micrófono y dar la palabra</small></button></div>
   </div>
 </div></div>
@@ -225,8 +225,9 @@ function renderPeople() {
 }
 function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); }
 if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
-$('#wListener').onclick = () => { saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
-$('#wSpeaker').onclick = () => { saveMe($('#wName').value, 'speaker'); $('#welcome').style.display = 'none'; connect(); };
+const needName = () => { const n = $('#wName').value.trim(); if (!n) { $('#wName').focus(); $('#wName').placeholder = 'Poné tu nombre para entrar'; $('#wName').classList.add('err'); return false; } return true; };
+$('#wListener').onclick = () => { if (!needName()) return; saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
+$('#wSpeaker').onclick = () => { if (!needName()) return; saveMe($('#wName').value, 'speaker'); $('#welcome').style.display = 'none'; connect(); };
 $('#saveMe').onclick = () => { saveMe($('#myName').value, $('#myRole').value); if (sock) sock.close(); };
 $('#gear').onclick = () => { const p = $('#panel'); p.style.display = p.style.display === 'none' ? '' : 'none'; $('#gear').classList.toggle('on', p.style.display !== 'none'); };
 let sock = null;
