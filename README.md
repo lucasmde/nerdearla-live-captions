@@ -87,6 +87,10 @@ El protocolo de ingest es trivial (WebSocket binario con PCM 16-bit mono 16 kHz 
 
 Variables de entorno: ver [`.env.example`](.env.example). Las más importantes: `GEMINI_API_KEY`, `INGEST_TOKEN` (protege los endpoints de ingest), `TRANSCRIBE_MODEL`, `TRANSLATE_MODEL`, `TRANSLATOR` (`gemini` | `ollama` | `none`).
 
+## Manual de operación
+
+El paso a paso para producción y operadores de escenario (instalación, sesiones, operación durante el evento, OBS, exportación, problemas frecuentes) está en [docs/MANUAL.md](docs/MANUAL.md). Video demo: ver la entrega en Devpost.
+
 ## Despliegue para una conferencia (guía)
 
 1. **Servidor.** Cualquier VM chica (1 vCPU / 1 GB alcanza para ~10 sesiones) con Docker. Poné un reverse proxy con TLS (Caddy: `reverse_proxy localhost:8080`) porque la consola del operador necesita HTTPS para acceder al micrófono, y los WebSockets pasan sin configuración extra.
