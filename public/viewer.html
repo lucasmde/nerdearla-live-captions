@@ -11,8 +11,7 @@
 <body>
 <div class="brandbar"></div>
 <header class="top">
-  <a class="logo" href="/" title="Todas las salas"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></a>
-  <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
+  <div class="brand"><a class="logo" href="/" title="Todas las salas"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></a><div><h1 id="title">…</h1><div class="sub" id="sub"></div></div></div>
   <div class="toolbar">
     <select id="langSel" class="btn" title="Idioma de los subtítulos"></select>
     <span class="badge" id="who" title="Ver quién está conectado" style="cursor:pointer"><span>👥</span><span>…</span></span>
@@ -68,17 +67,17 @@
     </div>
   </div>
 </header>
-<div id="welcome" class="modal" style="display:none"><div class="card">
-  <h3 style="margin:0 0 6px">¿Cómo entrás a la sala?</h3>
-  <div id="gBox" style="display:none;margin:4px 0 10px">
-    <p class="muted" style="margin:0 0 8px;font-size:14px">Con tu cuenta de Google se muestran tu nombre y tu foto.</p>
+<div id="welcome" class="modal" style="display:none"><div class="card welcome">
+  <div class="logo big"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></div>
+  <h3 style="margin:10px 0 2px">¿Cómo entrás a la sala?</h3>
+  <p class="muted" style="margin:0 0 12px;font-size:14px" id="guestHint">Elegí cómo mostrarte a los demás. Sin contraseña.</p>
+  <div id="gBox" style="display:none;margin:0 0 12px" class="acct">
     <div id="gBtn"></div>
     <div class="muted" id="gErr" style="font-size:12px;color:var(--red)"></div>
   </div>
   <div id="guestBox">
-    <p class="muted" style="margin:0 0 10px;font-size:14px" id="guestHint">Sin cuenta ni contraseña. Sólo para mostrar quién está conectado.</p>
-    <input id="wName" class="btn" placeholder="Tu nombre (opcional)" maxlength="40" style="width:100%;margin-bottom:8px">
-    <div class="toolbar"><button class="btn primary" id="wListener">🎧 Entrar como oyente</button><button class="btn" id="wSpeaker">🎤 Entrar como expositor</button></div>
+    <input id="wName" class="btn" placeholder="Tu nombre (opcional)" maxlength="40" style="width:100%;margin-bottom:10px;box-sizing:border-box">
+    <div class="roles"><button class="btn primary" id="wListener">🎧 Entrar como oyente<small>Leer subtítulos, chatear, levantar la mano</small></button><button class="btn" id="wSpeaker">🎤 Entrar como expositor<small>Transmitir el micrófono y dar la palabra</small></button></div>
   </div>
 </div></div>
 <div id="people" class="popover" style="display:none"></div>
