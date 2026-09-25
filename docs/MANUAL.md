@@ -98,7 +98,20 @@ npm start
 - `color`: color de la sala (borde de la tarjeta y barra superior). `agenda`: charlas con `day`, `start`, `end`, `title`, `speaker`, `lang`; el sistema muestra "ahora / sigue" en hora del evento (`timezone` en el archivo) y suma los oradores al vocabulario.
 - `vocabulary`: nombres propios, siglas y términos técnicos del evento. Mejora mucho el reconocimiento de nombres raros. Se puede poner uno global y otro por sesión.
 
-Después de editar `sessions.json`, reiniciá el servidor (`docker compose restart`).
+Después de editar `sessions.json` a mano, reiniciá el servidor (`docker compose restart`).
+
+### 3.1. Panel de salas (`/admin/sessions`) {#panel-de-salas}
+
+Para no tener que editar `sessions.json` a mano ni reiniciar el servidor, hay un panel web para crear salas y cargar la agenda en caliente:
+
+1. Configurá quién puede entrar: `ADMIN_EMAILS=vos@gmail.com,otro-organizador@gmail.com` en `.env` (o en las variables de entorno del hosting). Vacío = panel deshabilitado para todos.
+2. Necesita el login con Google configurado (`GOOGLE_CLIENT_ID`, ver sección 8) — el panel pide iniciar sesión y solo deja pasar a los mails de `ADMIN_EMAILS`.
+3. Entrá a `https://tu-dominio/admin/sessions` (hay un link "Salas y agenda" arriba del panel de producción `/admin`).
+4. **Nueva sala**: id (se usa en la URL, ej. `sala-abasto`), nombre, ubicación, color, idioma de origen, a qué idiomas traducir, y una "fuente de audio prevista" — un campo de texto libre (link de Zoom, URL de streaming, `rtmp://...` para `tools/ingest.js`, o simplemente una nota como "pestaña del canal oficial"). Ese campo es solo informativo y queda visible para el operador en `/operator/<id>`; la captura real de audio (micrófono o pestaña) se sigue iniciando en vivo desde ahí, como siempre.
+5. Cada sala ya creada se puede editar (nombre, ubicación, colores, idiomas, fuente de audio) y tiene su propia tabla de agenda: agregá charlas con título, orador, horario de inicio/fin e idioma, y editá o borrá cada una con los botones de la fila. Los nombres de los oradores se suman automáticamente al vocabulario de la sala (mejora el reconocimiento de nombres propios).
+6. Una sala que está recibiendo audio en ese momento no se puede borrar (hay que detener la captura desde el operador primero); sí se puede seguir editando su nombre/agenda mientras está en vivo.
+
+Los cambios se guardan en un `sessions.json` que vive en `DATA_DIR` (por defecto, la carpeta del proyecto — igual que siempre). En producción, para que las salas y la agenda sobrevivan un redeploy, hace falta un disco persistente montado ahí (por ejemplo un [Render Disk](https://render.com/docs/disks) en `/data` con `DATA_DIR=/data`); sin eso, el próximo `git push`/deploy vuelve a dejar el `sessions.json` del repositorio.
 
 ## 4. Operación durante el evento
 
@@ -203,7 +216,7 @@ Para GitHub: creá una *OAuth App* en GitHub → Settings → Developer settings
 1. En https://console.cloud.google.com/apis/credentials creá un **ID de cliente OAuth** de tipo *Aplicación web*. En *Orígenes autorizados de JavaScript* agregá `https://captions.tu-dominio.org` (y `http://localhost:8080` para probar en tu PC).
 2. Poné el ID en `.env` como `GOOGLE_CLIENT_ID=...` y reiniciá.
 3. En la pantalla de bienvenida de la sala aparecen *Iniciar sesión con Google* y *Entrar con GitHub* (también en ⚙ → *Yo*). El nombre y la foto de la cuenta se muestran en la cabecera, en la lista de conectados y en el chat. Para probar en tu PC, agregá `http://localhost:8080/api/auth/github/callback` como segunda callback en la OAuth App de GitHub.
-4. `GUEST_ACCESS` define qué puede hacer quien entra sin cuenta cuando hay login configurado: `limited` (por defecto: sólo lee los subtítulos, con un nombre validado; sin chat, mano, expositor ni mail — ve un aviso y un botón para iniciar sesión), `full` (igual que una cuenta) u `off` (obligatorio iniciar sesión; equivale a `ALLOW_GUESTS=0`). `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor; vacío = cualquiera con sesión. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
+4. `GUEST_ACCESS` define qué puede hacer quien entra sin cuenta cuando hay login configurado: `limited` (por defecto: sólo lee los subtítulos, con un nombre validado; sin chat, mano, expositor ni mail — ve un aviso y un botón para iniciar sesión), `full` (igual que una cuenta) u `off` (obligatorio iniciar sesión; equivale a `ALLOW_GUESTS=0`). `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor; vacío = cualquiera con sesión. `ADMIN_EMAILS=vos@gmail.com` habilita el [panel de salas](#panel-de-salas) (sección 3.1) para esos mails; vacío = panel deshabilitado. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
 
 ### Chat de la sala
 

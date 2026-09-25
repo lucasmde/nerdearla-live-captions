@@ -223,7 +223,7 @@ export class LiveSession {
 
   info() {
     return {
-      id: this.id, name: this.def.name, room: this.def.room, color: this.def.color || '', sourceLang: this.def.sourceLang,
+      id: this.id, name: this.def.name, room: this.def.room, color: this.def.color || '', audioNote: this.def.audioNote || '', sourceLang: this.def.sourceLang,
       agenda: this.agendaNow(), talks: (this.def.agenda || []).length,
       targetLangs: this.def.targetLangs, viewers: this.hub.viewers(this.id),
       status: this.hub.status.get(this.id) || null, source: this.source, segments: this.seq,

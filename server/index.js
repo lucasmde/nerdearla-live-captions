@@ -3,7 +3,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import express from 'express';
 import { WebSocketServer } from 'ws';
-import { config, langLabel } from './config.js';
+import { config, sessionStore, langLabel } from './config.js';
 import { Hub } from './hub.js';
 import { LiveSession } from './session.js';
 import { makeAuth } from './auth.js';
@@ -16,7 +16,21 @@ const auth = makeAuth(config);
 const mailer = makeMailer(config, (t, m) => console.log(`[${t}]`, m));
 const sessions = new Map();
 
-for (const def of config.sessions) sessions.set(def.id, new LiveSession(def, config, hub));
+for (const def of sessionStore.list()) sessions.set(def.id, new LiveSession(def, config, hub));
+
+// Keep the live `sessions` map (one LiveSession per room) in sync with the on-disk store
+// after an admin-panel change: new rooms get instantiated, edited rooms get their def
+// refreshed in place (so an in-progress capture isn't disturbed), removed rooms drop out.
+function syncSessionsFromStore() {
+  const ids = new Set();
+  for (const def of sessionStore.list()) {
+    ids.add(def.id);
+    const existing = sessions.get(def.id);
+    if (existing) existing.def = def;
+    else sessions.set(def.id, new LiveSession(def, config, hub));
+  }
+  for (const id of [...sessions.keys()]) if (!ids.has(id)) sessions.delete(id);
+}
 
 app.use(express.static(path.join(config.root, 'public')));
 app.use(express.json());
@@ -45,7 +59,7 @@ app.get('/api/auth/github/callback', async (req, res) => {
     res.redirect(back.startsWith('/') ? back : '/');
   } catch (e) { res.status(401).send('No se pudo iniciar sesión con GitHub: ' + String(e?.message || e).slice(0, 120)); }
 });
-app.get('/api/me', (req, res) => { const s = auth.fromRequest(req); res.json(s ? { name: s.name, email: s.email, picture: s.picture, canSpeak: s.canSpeak } : null); });
+app.get('/api/me', (req, res) => { const s = auth.fromRequest(req); res.json(s ? { name: s.name, email: s.email, picture: s.picture, canSpeak: s.canSpeak, isAdmin: auth.isAdmin(s) } : null); });
 app.post('/api/auth/google', async (req, res) => {
   try {
     const session = await auth.loginWithGoogle(req.body?.credential);
@@ -67,6 +81,44 @@ app.get('/s/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.
 // Printable / projectable access card of a room: big QR + room, talk now/next and the day's agenda.
 app.get('/s/:id/qr', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'qr.html')) : res.status(404).send('unknown session'));
 app.get('/admin', (_req, res) => res.sendFile(path.join(config.root, 'public', 'admin.html')));
+app.get('/admin/sessions', (_req, res) => res.sendFile(path.join(config.root, 'public', 'admin-sessions.html')));
+
+// --- Admin panel: create/edit rooms and their agenda (title, orador, horario) ---------
+// Requires being signed in (Google/GitHub) with an email listed in ADMIN_EMAILS.
+function requireAdmin(req, res, next) {
+  const me = auth.fromRequest(req);
+  if (!auth.isAdmin(me)) return res.status(403).json({ error: 'tu cuenta no tiene permisos de administración' });
+  next();
+}
+app.get('/api/admin/rooms', requireAdmin, (_req, res) => {
+  res.json({ event: sessionStore.event, timezone: sessionStore.timezone, rooms: sessionStore.list() });
+});
+app.post('/api/admin/rooms', requireAdmin, (req, res) => {
+  try { const room = sessionStore.create(req.body || {}); syncSessionsFromStore(); res.json(room); }
+  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
+app.patch('/api/admin/rooms/:id', requireAdmin, (req, res) => {
+  try { const room = sessionStore.update(req.params.id, req.body || {}); syncSessionsFromStore(); res.json(room); }
+  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
+app.delete('/api/admin/rooms/:id', requireAdmin, (req, res) => {
+  const live = sessions.get(req.params.id);
+  if (live?.source) return res.status(409).json({ error: 'esa sala está recibiendo audio ahora mismo — detené la captura desde el operador antes de borrarla' });
+  try { sessionStore.remove(req.params.id); syncSessionsFromStore(); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
+app.post('/api/admin/rooms/:id/agenda', requireAdmin, (req, res) => {
+  try { const entry = sessionStore.addAgenda(req.params.id, req.body || {}); syncSessionsFromStore(); res.json(entry); }
+  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
+app.patch('/api/admin/rooms/:id/agenda/:idx', requireAdmin, (req, res) => {
+  try { const agenda = sessionStore.updateAgenda(req.params.id, Number(req.params.idx), req.body || {}); syncSessionsFromStore(); res.json({ agenda }); }
+  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
+app.delete('/api/admin/rooms/:id/agenda/:idx', requireAdmin, (req, res) => {
+  try { sessionStore.removeAgenda(req.params.id, Number(req.params.idx)); syncSessionsFromStore(); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+});
 app.get('/operator/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'operator.html')) : res.status(404).send('unknown session'));
 
 // --- Transcript export (txt / srt / vtt / json), optional time window and language ---

@@ -22,6 +22,7 @@
       <b></b><div id="detectInfo" class="muted" style="font-size:13px"></div>
       <b>Token</b><input id="token" placeholder="INGEST_TOKEN (si el servidor lo exige)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)">
     </div>
+    <p class="muted" id="audioNote" style="font-size:13px;margin:10px 0 0;display:none"></p>
     <div class="toolbar" style="margin-top:8px">
       <button class="btn primary" id="startMic">▶ Iniciar con micrófono / entrada</button>
       <button class="btn" id="startTab">▶ Capturar audio de una pestaña</button>
@@ -48,7 +49,12 @@ let ws, ctx, node, stream, t0, bytes = 0;
 const log = (m) => { const l = $('#log'); l.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`; l.scrollTop = l.scrollHeight; };
 const setBadge = (cls, txt) => { const b = $('#st'); b.className = 'badge ' + cls; b.lastElementChild.textContent = txt; };
 
-fetch('/api/sessions').then(r => r.json()).then(d => { const s = d.sessions.find(x => x.id === id); $('#sname').textContent = `${s.name} (${s.id}) · idioma: ${s.sourceLang} → ${s.targetLangs.join(', ')}`; $('#title').textContent = `Operador · ${s.name}`; });
+fetch('/api/sessions').then(r => r.json()).then(d => {
+  const s = d.sessions.find(x => x.id === id);
+  $('#sname').textContent = `${s.name} (${s.id}) · idioma: ${s.sourceLang} → ${s.targetLangs.join(', ')}`;
+  $('#title').textContent = `Operador · ${s.name}`;
+  if (s.audioNote) { $('#audioNote').textContent = `📎 Fuente prevista para esta sala: ${s.audioNote}`; $('#audioNote').style.display = 'block'; }
+});
 
 async function listDevices() {
   try { await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop())); } catch {}

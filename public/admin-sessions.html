@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Salas y agenda · Live captions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .field input, .field select { padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-family: var(--font-body); }
+  .field input[type=color] { padding: 2px; height: 36px; width: 56px; }
+  .roomForm { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; align-items: end; }
+  .roomForm .wide { grid-column: 1 / -1; }
+  table.agenda { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+  table.agenda th, table.agenda td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.agenda th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; }
+  table.agenda input, table.agenda select { width: 100%; box-sizing: border-box; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); font-size: 13px; }
+  .roomHead { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .msg { font-size: 13px; padding: 8px 10px; border-radius: 8px; margin: 8px 0; display: none; }
+  .msg.err { background: #2a1214; border: 1px solid #5b2b33; color: #ffb4bb; display: block; }
+  .msg.ok { background: #0f2a1e; border: 1px solid #1f5b3b; color: #9be8bd; display: block; }
+  .gate { max-width: 460px; margin: 60px auto; text-align: center; }
+</style>
+</head>
+<body>
+<div class="brandbar"></div>
+<header class="top">
+  <div><h1>Salas y agenda</h1><div class="sub">Crear salas, cargar charlas (título, orador, horario) y la fuente de audio prevista</div></div>
+  <div class="toolbar"><a class="btn" href="/admin">← Panel de producción</a></div>
+</header>
+<div class="wrap" id="app">
+  <div class="card gate" id="gate" style="display:none">
+    <p id="gateMsg" class="muted"></p>
+    <div id="gBtn"></div>
+  </div>
+  <div id="main" style="display:none">
+    <div class="card">
+      <b class="display" style="font-size:18px">Nueva sala</b>
+      <div id="createMsg" class="msg"></div>
+      <div class="roomForm" style="margin-top:10px">
+        <div class="field">ID (url) <input id="c_id" placeholder="sala-abasto"></div>
+        <div class="field">Nombre <input id="c_name" placeholder="Sala Abasto"></div>
+        <div class="field">Ubicación <input id="c_room" placeholder="Konex · Abasto"></div>
+        <div class="field">Color <input id="c_color" type="color" value="#00ACA8"></div>
+        <div class="field">Idioma de origen
+          <select id="c_sourceLang"><option value="auto">Automático</option><option value="es">Español</option><option value="en">English</option><option value="pt">Português</option></select>
+        </div>
+        <div class="field">Traducir a
+          <select id="c_targetLangs" multiple size="3"><option value="es" selected>Español</option><option value="en" selected>English</option><option value="pt">Português</option></select>
+        </div>
+        <div class="field wide">Fuente de audio prevista (informativo — la captura real se inicia en vivo desde el operador)
+          <input id="c_audioNote" placeholder="ej: pestaña del canal de streaming, link de Zoom, rtmp://... para tools/ingest.js">
+        </div>
+        <div><button class="btn primary" id="createBtn">+ Crear sala</button></div>
+      </div>
+    </div>
+    <div id="rooms" style="margin-top:16px;display:flex;flex-direction:column;gap:14px"></div>
+  </div>
+</div>
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let me = null;
+
+function flash(el, ok, text) { el.className = 'msg ' + (ok ? 'ok' : 'err'); el.textContent = text; el.style.display = 'block'; if (ok) setTimeout(() => { el.style.display = 'none'; }, 2500); }
+async function api(method, url, body) {
+  const r = await fetch(url, { method, headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || `error ${r.status}`);
+  return d;
+}
+
+function roomCard(room) {
+  const langOpts = (sel) => ['es', 'en', 'pt'].map((l) => `<option value="${l}" ${sel.includes(l) ? 'selected' : ''}>${l}</option>`).join('');
+  const agendaRows = room.agenda.map((t, i) => `
+    <tr data-idx="${i}">
+      <td><input class="a_day" value="${esc(t.day)}" placeholder="2026-09-25" style="min-width:100px"></td>
+      <td><input class="a_start" type="time" value="${esc(t.start)}"></td>
+      <td><input class="a_end" type="time" value="${esc(t.end)}"></td>
+      <td><input class="a_title" value="${esc(t.title)}" style="min-width:200px"></td>
+      <td><input class="a_speaker" value="${esc(t.speaker)}" style="min-width:140px"></td>
+      <td><select class="a_lang"><option value="es" ${t.lang === 'es' ? 'selected' : ''}>ES</option><option value="en" ${t.lang === 'en' ? 'selected' : ''}>EN</option><option value="pt" ${t.lang === 'pt' ? 'selected' : ''}>PT</option></select></td>
+      <td><button class="btn" data-save-talk="${i}" title="Guardar">💾</button> <button class="btn danger" data-del-talk="${i}" title="Borrar">✕</button></td>
+    </tr>`).join('');
+  return `
+  <div class="card" data-room="${room.id}">
+    <div class="roomHead">
+      <b class="display" style="font-size:18px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${room.color || 'var(--teal)'};margin-right:8px"></span>${esc(room.name)} <span class="muted" style="font-size:13px;font-weight:400">(${room.id})</span></b>
+      <div class="toolbar">
+        <a class="btn" href="/operator/${room.id}" target="_blank">operador</a>
+        <a class="btn" href="/s/${room.id}?lang=es" target="_blank">audiencia</a>
+        <button class="btn danger" data-del-room="${room.id}">Borrar sala</button>
+      </div>
+    </div>
+    <div id="msg-${room.id}" class="msg"></div>
+    <div class="roomForm" style="margin-top:10px">
+      <div class="field">Nombre <input class="r_name" value="${esc(room.name)}"></div>
+      <div class="field">Ubicación <input class="r_room" value="${esc(room.room)}"></div>
+      <div class="field">Color <input class="r_color" type="color" value="${room.color || '#00ACA8'}"></div>
+      <div class="field">Idioma origen
+        <select class="r_sourceLang"><option value="auto" ${room.sourceLang === 'auto' ? 'selected' : ''}>Automático</option><option value="es" ${room.sourceLang === 'es' ? 'selected' : ''}>Español</option><option value="en" ${room.sourceLang === 'en' ? 'selected' : ''}>English</option><option value="pt" ${room.sourceLang === 'pt' ? 'selected' : ''}>Português</option></select>
+      </div>
+      <div class="field">Traducir a <select class="r_targetLangs" multiple size="3">${langOpts(room.targetLangs)}</select></div>
+      <div class="field wide">Fuente de audio prevista <input class="r_audioNote" value="${esc(room.audioNote || '')}" placeholder="ej: rtmp://..., link de Zoom, pestaña del streaming"></div>
+      <div><button class="btn primary" data-save-room="${room.id}">Guardar cambios</button></div>
+    </div>
+    <b class="muted" style="font-size:12px;display:block;margin-top:14px">Agenda (${room.agenda.length} charlas)</b>
+    <table class="agenda">
+      <thead><tr><th>Día</th><th>Inicio</th><th>Fin</th><th>Título</th><th>Orador</th><th>Idioma</th><th></th></tr></thead>
+      <tbody>${agendaRows}
+        <tr data-new-talk>
+          <td><input class="n_day" placeholder="2026-09-25" style="min-width:100px"></td>
+          <td><input class="n_start" type="time"></td>
+          <td><input class="n_end" type="time"></td>
+          <td><input class="n_title" placeholder="Título de la charla" style="min-width:200px"></td>
+          <td><input class="n_speaker" placeholder="Nombre del orador" style="min-width:140px"></td>
+          <td><select class="n_lang"><option value="es">ES</option><option value="en">EN</option><option value="pt">PT</option></select></td>
+          <td><button class="btn primary" data-add-talk>+ Agregar</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function bindRoomCard(card, room) {
+  card.querySelector('[data-save-room]').onclick = async () => {
+    const msg = $('#msg-' + room.id, card.parentElement) || card.querySelector('.msg');
+    try {
+      await api('PATCH', `/api/admin/rooms/${room.id}`, {
+        name: card.querySelector('.r_name').value,
+        room: card.querySelector('.r_room').value,
+        color: card.querySelector('.r_color').value,
+        sourceLang: card.querySelector('.r_sourceLang').value,
+        targetLangs: [...card.querySelector('.r_targetLangs').selectedOptions].map((o) => o.value),
+        audioNote: card.querySelector('.r_audioNote').value,
+      });
+      flash(msg, true, 'Guardado.');
+      load();
+    } catch (e) { flash(msg, false, e.message); }
+  };
+  card.querySelector('[data-del-room]').onclick = async () => {
+    if (!confirm(`¿Borrar la sala "${room.name}"? Esto no se puede deshacer.`)) return;
+    const msg = card.querySelector('.msg');
+    try { await api('DELETE', `/api/admin/rooms/${room.id}`); load(); }
+    catch (e) { flash(msg, false, e.message); }
+  };
+  card.querySelectorAll('[data-save-talk]').forEach((btn) => {
+    btn.onclick = async () => {
+      const tr = btn.closest('tr'); const msg = card.querySelector('.msg');
+      try {
+        await api('PATCH', `/api/admin/rooms/${room.id}/agenda/${btn.dataset.saveTalk}`, {
+          day: tr.querySelector('.a_day').value, start: tr.querySelector('.a_start').value, end: tr.querySelector('.a_end').value,
+          title: tr.querySelector('.a_title').value, speaker: tr.querySelector('.a_speaker').value, lang: tr.querySelector('.a_lang').value,
+        });
+        flash(msg, true, 'Charla actualizada.'); load();
+      } catch (e) { flash(msg, false, e.message); }
+    };
+  });
+  card.querySelectorAll('[data-del-talk]').forEach((btn) => {
+    btn.onclick = async () => {
+      if (!confirm('¿Borrar esta charla de la agenda?')) return;
+      const msg = card.querySelector('.msg');
+      try { await api('DELETE', `/api/admin/rooms/${room.id}/agenda/${btn.dataset.delTalk}`); load(); }
+      catch (e) { flash(msg, false, e.message); }
+    };
+  });
+  const addBtn = card.querySelector('[data-add-talk]');
+  addBtn.onclick = async () => {
+    const tr = addBtn.closest('tr'); const msg = card.querySelector('.msg');
+    try {
+      await api('POST', `/api/admin/rooms/${room.id}/agenda`, {
+        day: tr.querySelector('.n_day').value, start: tr.querySelector('.n_start').value, end: tr.querySelector('.n_end').value,
+        title: tr.querySelector('.n_title').value, speaker: tr.querySelector('.n_speaker').value, lang: tr.querySelector('.n_lang').value,
+      });
+      flash(msg, true, 'Charla agregada.'); load();
+    } catch (e) { flash(msg, false, e.message); }
+  };
+}
+
+async function load() {
+  const d = await api('GET', '/api/admin/rooms');
+  const wrap = $('#rooms');
+  wrap.innerHTML = d.rooms.map(roomCard).join('');
+  d.rooms.forEach((room) => bindRoomCard(wrap.querySelector(`[data-room="${room.id}"]`), room));
+}
+
+$('#createBtn').onclick = async () => {
+  const msg = $('#createMsg');
+  try {
+    await api('POST', '/api/admin/rooms', {
+      id: $('#c_id').value.trim().toLowerCase(), name: $('#c_name').value, room: $('#c_room').value, color: $('#c_color').value,
+      sourceLang: $('#c_sourceLang').value, targetLangs: [...$('#c_targetLangs').selectedOptions].map((o) => o.value), audioNote: $('#c_audioNote').value,
+    });
+    ['c_id', 'c_name', 'c_room', 'c_audioNote'].forEach((id) => { $('#' + id).value = ''; });
+    flash(msg, true, 'Sala creada.');
+    load();
+  } catch (e) { flash(msg, false, e.message); }
+};
+
+async function boot() {
+  me = await (await fetch('/api/me')).json();
+  const cfg = await (await fetch('/api/config')).json();
+  if (me && me.isAdmin) { $('#main').style.display = 'block'; load(); return; }
+  $('#gate').style.display = 'block';
+  if (!me) {
+    $('#gateMsg').textContent = 'Iniciá sesión con Google para acceder al panel de salas.';
+    if (cfg.googleClientId) {
+      const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+      s.onload = () => {
+        google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: async (resp) => {
+          await fetch('/api/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
+          location.reload();
+        } });
+        google.accounts.id.renderButton($('#gBtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: 'es' });
+      };
+      document.head.appendChild(s);
+    }
+  } else {
+    $('#gateMsg').textContent = `Tu cuenta (${me.email}) inició sesión pero no tiene permisos de administración. Pedile a quien administra el servidor que agregue tu mail a ADMIN_EMAILS.`;
+  }
+}
+boot();
+</script>
+</body>
+</html>

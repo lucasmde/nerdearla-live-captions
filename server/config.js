@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { makeStore } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -18,24 +19,15 @@ try {
   }
 } catch { /* ignore */ }
 
-function loadSessionsFile() {
-  const candidates = [
-    process.env.SESSIONS_FILE,
-    path.join(ROOT, 'sessions.json'),
-    path.join(ROOT, 'sessions.example.json'),
-  ].filter(Boolean);
-  for (const f of candidates) {
-    if (fs.existsSync(f)) {
-      return { file: f, data: JSON.parse(fs.readFileSync(f, 'utf8')) };
-    }
-  }
-  return { file: null, data: { sessions: [] } };
-}
-
-const { file, data } = loadSessionsFile();
+// Where the live-editable room/agenda directory lives. DATA_DIR points this at a
+// persistent disk (Render Disk, a Docker volume, etc.) so admin-panel changes survive
+// redeploys; without it, it defaults to the project root — same file as always.
+const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : ROOT;
+export const sessionStore = makeStore({ dataDir, root: ROOT, sessionsFileOverride: process.env.SESSIONS_FILE });
 
 export const config = {
   root: ROOT,
+  dataDir,
   port: Number(process.env.PORT || 8080),
   engine: process.env.ENGINE || (process.env.GEMINI_API_KEY ? 'gemini' : 'mock'),
   geminiApiKey: process.env.GEMINI_API_KEY || '',
@@ -64,6 +56,7 @@ export const config = {
   guestAccess: ['off', 'limited', 'full'].includes((process.env.GUEST_ACCESS || '').toLowerCase()) ? process.env.GUEST_ACCESS.toLowerCase() : (process.env.ALLOW_GUESTS === '0' ? 'off' : 'limited'),
   allowGuests: process.env.ALLOW_GUESTS !== '0' && (process.env.GUEST_ACCESS || '').toLowerCase() !== 'off', // let people in with just a name (no account)
   speakerEmails: (process.env.SPEAKER_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean), // who may transmit; empty = anyone signed in
+  adminEmails: (process.env.ADMIN_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean), // who can open /admin/sessions (create/edit rooms & agenda); empty = nobody
   allowedDomains: (process.env.ALLOWED_DOMAINS || '').split(',').map((s) => s.trim()).filter(Boolean), // restrict sign-in to these email domains
   publicUrl: process.env.PUBLIC_URL || '',
   githubClientId: process.env.GITHUB_CLIENT_ID || '',           // "Sign in with GitHub" (OAuth App)
@@ -71,20 +64,11 @@ export const config = {
   smtpUrl: process.env.SMTP_URL || '',
   resendApiKey: process.env.RESEND_API_KEY || '',
   mailFrom: process.env.MAIL_FROM || '',                     // e.g. https://captions.example.org (used for links in mails)
-  sessionsFile: file,
-  sessions: (data.sessions || []).map((s) => ({
-    id: s.id,
-    name: s.name || s.id,
-    room: s.room || '',
-    sourceLang: s.sourceLang || 'auto', // 'auto' | BCP-47 (e.g. 'en', 'es')
-    targetLangs: s.targetLangs || ['es', 'en'],
-    vocabulary: [...(s.vocabulary || []), ...(s.agenda || []).flatMap((t) => (t.speaker || '').split(',').map((x) => x.trim()).filter(Boolean))],
-    color: s.color || '',
-    agenda: (s.agenda || []).map((t) => ({ day: t.day || '', start: t.start, end: t.end, title: t.title, speaker: t.speaker || '', lang: t.lang || '' })),
-  })),
-  globalVocabulary: data.vocabulary || [],
-  event: data.event || '',
-  timezone: data.timezone || process.env.TZ || 'America/Argentina/Buenos_Aires',
+  sessionsFile: sessionStore.file,
+  sessions: sessionStore.list(),
+  globalVocabulary: sessionStore.globalVocabulary,
+  event: sessionStore.event,
+  timezone: sessionStore.timezone || process.env.TZ || 'America/Argentina/Buenos_Aires',
 };
 
 export function langLabel(code) {

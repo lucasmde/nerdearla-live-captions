@@ -36,6 +36,7 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 - **Sesiones largas.** La Live API corta a los ~10 min; el servidor rota la sesión antes de eso y ante `GoAway`, abriendo la nueva antes de cerrar la vieja y bufereando el audio, así una charla de 50 min no pierde nada.
 - **Transcripción completa.** Cada sesión deja un `.jsonl` y se puede bajar como SRT, VTT, texto o JSON (`/api/sessions/<id>/transcript.srt?lang=es`) para publicar con el video.
 - **Panel de producción.** `/admin` muestra por sesión: si llega audio, estado del motor, hace cuánto salió el último subtítulo, latencia de traducción, audiencia conectada y errores.
+- **Panel de salas y agenda.** `/admin/sessions` (solo para los mails en `ADMIN_EMAILS`, con login de Google) permite crear salas, editarlas y cargar/editar/borrar charlas de la agenda —título, orador, horario, idioma— sin tocar `sessions.json` a mano ni reiniciar el servidor. Detalle en [docs/MANUAL.md](docs/MANUAL.md#panel-de-salas).
 - **Vocabulario propio.** Nombres de la conferencia, productos y siglas en `sessions.json` (`vocabulary`) para mejorar el reconocimiento.
 - **Sin vendor lock-in.** Motores intercambiables: `ENGINE=mock` para probar sin key, `TRANSLATOR=ollama` para traducir con Gemma local.
 
@@ -198,7 +199,7 @@ Todo opcional y configurado por variables de entorno; ver `docs/MANUAL.md` §8.
 ## Pruebas, CI y números
 
 ```bash
-npm test                                   # unit + end-to-end + features (servidor real en modo simulado), 13 pruebas
+npm test                                   # unit + end-to-end + features (servidor real en modo simulado), 21 pruebas
 node tools/bench.js --sessions 10 --viewers 50 --seconds 45   # carga: 10 escenarios × 500 espectadores
 ```
 
@@ -208,7 +209,6 @@ Medido (2 vCPU): 10 sesiones × 50 espectadores → **2.100 mensajes/s**, fan-ou
 
 - STT local (whisper.cpp) como motor alternativo.
 - Audio traducido (doblaje en vivo) con `gemini-*-live-translate` como canal opcional de audio para la audiencia.
-- Panel de administración para crear sesiones sin reiniciar.
 - Diarización de oradores en paneles.
 
 ## Licencia

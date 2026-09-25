@@ -5,6 +5,14 @@ services:
     runtime: docker
     plan: starter
     healthCheckPath: /api/health
+    # Persistent disk so sessions.json (rooms/agenda edited from /admin/sessions) survives
+    # a redeploy — without this, admin-panel changes are lost the next time Render deploys.
+    # Render adds this via the dashboard on plans that support Disks (Settings -> Disks -> Add Disk,
+    # mount path /data) or by uncommenting the block below.
+    # disk:
+    #   name: sessions-data
+    #   mountPath: /data
+    #   sizeGB: 1
     envVars:
       - key: ENGINE
         value: gemini
@@ -16,3 +24,7 @@ services:
         generateValue: true
       - key: SESSION_SECRET
         generateValue: true
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: DATA_DIR
+        value: /data

@@ -11,6 +11,8 @@ export function makeAuth(cfg) {
   const secret = cfg.sessionSecret || crypto.randomBytes(32).toString('hex');
   const client = cfg.googleClientId ? new OAuth2Client(cfg.googleClientId) : null;
   const speakerEmails = new Set(cfg.speakerEmails.map((e) => e.toLowerCase()));
+  const adminEmails = new Set((cfg.adminEmails || []).map((e) => e.toLowerCase()));
+  const isAdminEmail = (email) => adminEmails.size > 0 && adminEmails.has(String(email || '').toLowerCase());
 
   const sign = (payload) => {
     const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -35,6 +37,8 @@ export function makeAuth(cfg) {
     allowGuests: guestAccess !== 'off',
     /** Can this connection (session or null) use chat, raise the hand, be a speaker, send mails? */
     canParticipate(me) { return !!me || guestAccess === 'full'; },
+    /** Can this signed-in session open /admin/sessions (create/edit rooms & agenda)? */
+    isAdmin(me) { return !!me && isAdminEmail(me.email); },
     clientId: cfg.googleClientId,
 
     /** Session from an incoming HTTP/WS request, or null. */

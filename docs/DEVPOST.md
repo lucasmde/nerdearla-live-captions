@@ -25,7 +25,7 @@ Nerdearla tiene más de 30 charlas en simultáneo en varias salas y hoy se subti
 
 ## How we built it
 
-Node.js 22 + `ws` + `express`, sin frameworks pesados. `@google/genai` para la Live API (transcripción) y `generateContent` (traducción y resúmenes, con fallback automático a otros modelos si uno se satura). Google Identity Services + una app OAuth propia de GitHub para el login social; cookie de sesión firmada con HMAC. `MediaRecorder`/`AudioWorklet` en el navegador para audio del micrófono y para los audios cortos del chat. Frontend en HTML/CSS/JS vanilla con la identidad visual de Nerdearla (colores y tipografías del evento). Docker + docker compose + manifiestos para Render/Railway/Cloud Run/Kubernetes, licencia Apache-2.0, README con guía de despliegue, manual de operación en `docs/MANUAL.md`, 14+ tests automáticos (`node --test`) corriendo en CI en cada push, y un benchmark propio (`tools/bench.js`) que mide latencia y costo de recursos con carga real.
+Node.js 22 + `ws` + `express`, sin frameworks pesados. `@google/genai` para la Live API (transcripción) y `generateContent` (traducción y resúmenes, con fallback automático a otros modelos si uno se satura). Google Identity Services + una app OAuth propia de GitHub para el login social; cookie de sesión firmada con HMAC. `MediaRecorder`/`AudioWorklet` en el navegador para audio del micrófono y para los audios cortos del chat. Frontend en HTML/CSS/JS vanilla con la identidad visual de Nerdearla (colores y tipografías del evento). Docker + docker compose + manifiestos para Render/Railway/Cloud Run/Kubernetes, licencia Apache-2.0, README con guía de despliegue, manual de operación en `docs/MANUAL.md`, 21+ tests automáticos (`node --test`) corriendo en CI en cada push, y un benchmark propio (`tools/bench.js`) que mide latencia y costo de recursos con carga real.
 
 ## Challenges we ran into
 
@@ -41,7 +41,7 @@ Que la transcripción en streaming ya es lo suficientemente buena para reemplaza
 
 ## What's next
 
-STT local con whisper.cpp como motor alternativo (cero costo de API), audio doblado en vivo (`gemini-live-translate`) como canal opcional, panel para crear/editar sesiones sin reiniciar el servidor, diarización de oradores, escalado horizontal con Redis para eventos de miles de espectadores, un instalador de escritorio sin terminal para operadores no técnicos, y que el glosario de la sesión cambie automáticamente según la charla que está "ahora" en la agenda (hoy se acumulan todos los términos de la sala).
+STT local con whisper.cpp como motor alternativo (cero costo de API), audio doblado en vivo (`gemini-live-translate`) como canal opcional, diarización de oradores, escalado horizontal con Redis para eventos de miles de espectadores, un instalador de escritorio sin terminal para operadores no técnicos, y que el glosario de la sesión cambie automáticamente según la charla que está "ahora" en la agenda (hoy se acumulan todos los términos de la sala). *(Ya sumamos el panel para crear/editar salas y agenda sin tocar el servidor: [docs/MANUAL.md](MANUAL.md#panel-de-salas).)*
 
 **Built with:** node.js, gemini, websockets, express, ffmpeg, docker, javascript, google identity services, github oauth
 
