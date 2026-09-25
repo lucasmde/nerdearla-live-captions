@@ -4,9 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Subtítulos en vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<div class="brandbar"></div>
 <header class="top">
   <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
   <div class="toolbar">
@@ -90,8 +93,8 @@ function renderPartial(m) {
 function scroll() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
 $('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
 function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }
-$('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('primary', showOrig); rerender(); };
-if (showOrig) $('#orig').classList.add('primary');
+$('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('on', showOrig); rerender(); };
+if (showOrig) $('#orig').classList.add('on');
 connect();
 </script>
 </body>
