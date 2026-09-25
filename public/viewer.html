@@ -13,10 +13,19 @@
 <header class="top">
   <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
   <div class="toolbar">
-    <div class="langs" id="langs"></div>
+    <select id="langSel" class="btn" title="Idioma de los subtítulos"></select>
     <button class="btn" id="orig" title="Mostrar también el idioma original">orig</button>
     <button class="btn" id="minus">A−</button><button class="btn" id="plus">A+</button>
+    <button class="btn" id="clear" title="Borra lo que hay en pantalla (el historial sigue guardado)">Limpiar</button>
+    <button class="btn" id="exportBtn" title="Descargar lo mostrado entre dos horarios">Exportar</button>
     <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
+  </div>
+  <div id="exportBox" class="toolbar" style="display:none;width:100%;gap:8px;padding:8px 0 2px;font-size:14px;align-items:center">
+    <span class="muted">Desde</span><input type="time" id="expFrom" class="btn" step="60">
+    <span class="muted">hasta</span><input type="time" id="expTo" class="btn" step="60">
+    <select id="expFmt" class="btn"><option value="txt">TXT con horarios</option><option value="srt">SRT</option><option value="vtt">VTT</option><option value="json">JSON</option></select>
+    <button class="btn primary" id="expGo">Descargar</button>
+    <span class="muted" style="font-size:12px">(vacío = toda la sesión; idioma: el seleccionado)</span>
   </div>
 </header>
 <main class="captions" id="captions"><p class="seg waiting" id="waiting">Esperando audio de la sesión…</p></main>
@@ -36,12 +45,11 @@ fetch('/api/sessions').then(r => r.json()).then(d => {
   meta = d.sessions.find(s => s.id === id); if (!meta) return;
   $('#title').textContent = meta.name; $('#sub').textContent = meta.room || '';
   document.title = `${meta.name} · subtítulos`;
-  const L = $('#langs'); L.innerHTML = '';
+  const L = $('#langSel'); L.innerHTML = '';
   for (const l of meta.targetLangs) {
-    const b = document.createElement('button'); b.className = 'pill' + (l === lang ? ' active' : ''); b.textContent = d.langLabels[l] || l;
-    b.onclick = () => { lang = l; history.replaceState(null, '', `?lang=${l}${showOrig ? '&orig=1' : ''}`); [...L.children].forEach(c => c.classList.remove('active')); b.classList.add('active'); rerender(); };
-    L.appendChild(b);
+    const o = document.createElement('option'); o.value = l; o.textContent = '🌐 ' + (d.langLabels[l] || l); o.selected = l === lang; L.appendChild(o);
   }
+  L.onchange = () => { lang = L.value; history.replaceState(null, '', `?lang=${lang}${showOrig ? '&orig=1' : ''}`); rerender(); };
 });
 
 function connect() {
@@ -91,6 +99,12 @@ function renderPartial(m) {
   scroll();
 }
 function scroll() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
+$('#clear').onclick = () => { segs.clear(); if (partialEl) { partialEl.remove(); partialEl = null; } rerender(); };
+$('#exportBtn').onclick = () => { const b = $('#exportBox'); b.style.display = b.style.display === 'none' ? 'flex' : 'none'; };
+$('#expGo').onclick = () => {
+  const q = new URLSearchParams({ lang }); if ($('#expFrom').value) q.set('from', $('#expFrom').value); if ($('#expTo').value) q.set('to', $('#expTo').value);
+  const a = document.createElement('a'); a.href = `/api/sessions/${id}/transcript.${$('#expFmt').value}?${q}`; a.download = `${id}-${lang}.${$('#expFmt').value}`; document.body.appendChild(a); a.click(); a.remove();
+};
 $('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
 function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }
 $('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('on', showOrig); rerender(); };

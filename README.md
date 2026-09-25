@@ -27,6 +27,22 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 - **Vocabulario propio.** Nombres de la conferencia, productos y siglas en `sessions.json` (`vocabulary`) para mejorar el reconocimiento.
 - **Sin vendor lock-in.** Motores intercambiables: `ENGINE=mock` para probar sin key, `TRANSLATOR=ollama` para traducir con Gemma local.
 
+## Probalo en 5 minutos (sin micrófono ni configuración)
+
+```bash
+git clone https://github.com/lucasmde/nerdearla-live-captions && cd nerdearla-live-captions
+npm install
+echo "GEMINI_API_KEY=tu_key" > .env        # https://aistudio.google.com → Get API key
+npm start                                  # http://localhost:8080
+# en otra terminal: dos "escenarios" a la vez, uno en inglés y otro en español
+node tools/ingest.js --session main --input demo/talk_en.mp3 &
+node tools/ingest.js --session workshop-1 --input demo/talk_es.mp3
+```
+
+Abrí http://localhost:8080/s/main?lang=es (charla en inglés vista en español), http://localhost:8080/s/workshop-1?lang=en (charla en español vista en inglés) y http://localhost:8080/admin (panel de producción). Sin API key, `npm run mock` muestra la interfaz con una charla simulada.
+
+En la vista de audiencia: desplegable de idioma (cambia también lo ya mostrado), **ORIG** para ver la frase original debajo, tamaño de letra, **Limpiar** pantalla y **Exportar** lo mostrado entre dos horarios en TXT/SRT/VTT/JSON.
+
 ## Correrlo en 2 minutos
 
 Requisitos: Node 20+ (y ffmpeg si vas a usar `tools/ingest.js`), o Docker.

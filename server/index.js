@@ -41,7 +41,17 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
     if (o.text) segs.set(o.id, { ...o, tr: {} });
     else if (o.tr && segs.has(o.id)) Object.assign(segs.get(o.id).tr, o.tr);
   }
-  const list = [...segs.values()];
+  let list = [...segs.values()];
+  // Optional time window: ?from=HH:MM&to=HH:MM (local server time), ISO date-times or epoch ms.
+  const parseT = (v) => {
+    if (!v) return null;
+    if (/^\d{13}$/.test(v)) return Number(v);
+    if (/^\d{1,2}:\d{2}$/.test(v)) { const [h, m] = v.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.getTime(); }
+    const t = Date.parse(v); return Number.isNaN(t) ? null : t;
+  };
+  const from = parseT(req.query.from), to = parseT(req.query.to);
+  if (from) list = list.filter((s) => s.t >= from);
+  if (to) list = list.filter((s) => s.t <= to);
   if (req.params.fmt === 'json') return res.json(list);
   const vtt = req.params.fmt === 'vtt';
   const pad = (n, w = 2) => String(n).padStart(w, '0');
@@ -52,7 +62,10 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
     const text = lang && seg.tr?.[lang] ? seg.tr[lang] : seg.text;
     return `${vtt ? '' : (i + 1) + '\n'}${ts(seg.rel)} --> ${ts(Math.max(end, seg.rel + 800))}\n${text}\n`;
   }).join('\n');
-  if (req.params.fmt === 'txt') return res.type('text/plain').send(list.map((seg) => (lang && seg.tr?.[lang]) || seg.text).join('\n'));
+  if (req.params.fmt === 'txt') {
+    const hhmmss = (t) => new Date(t).toLocaleTimeString('es-AR', { hour12: false });
+    return res.type('text/plain').send(list.map((seg) => `[${hhmmss(seg.t)}] ${(lang && seg.tr?.[lang]) || seg.text}`).join('\n'));
+  }
   res.type(vtt ? 'text/vtt' : 'text/plain').send((vtt ? 'WEBVTT\n\n' : '') + body);
 });
 
