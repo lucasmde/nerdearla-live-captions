@@ -1,0 +1,9 @@
+node_modules
+transcripts
+.env
+.env.*
+!.env.example
+sessions.json
+*.log
+.git
+docs/manual.html

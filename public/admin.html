@@ -31,6 +31,7 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: upp
   <p class="small" style="margin-top:14px">"Audio" = hace cuánto llegó el último paquete de audio del escenario. "Último subtítulo" = hace cuánto se emitió el último parcial / final. "Traducción" = tiempo promedio de traducción por segmento. "SIN SEÑAL" = llega audio pero por debajo de −50 dBFS durante 20 s (cable/consola muteados). Métricas Prometheus en <a href="/metrics">/metrics</a>.</p>
 </div>
 <script>
+const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ago = (t) => t ? `${((Date.now() - t) / 1000).toFixed(1)} s` : '—';
 const cls = (t, warn, bad) => !t ? 'small' : (Date.now() - t) > bad ? 'bad' : (Date.now() - t) > warn ? 'warn' : 'ok';
 async function tick() {
@@ -40,14 +41,14 @@ async function tick() {
     const m = s.metrics || {}; const st = s.status || {};
     const live = st.live && s.source;
     return `<tr>
-      <td><b>${s.name}</b><div class="small">${s.id} · ${s.room || ''} · ${s.sourceLang} → ${s.targetLangs.join(', ')}</div></td>
+      <td><b>${esc(s.name)}</b><div class="small">${esc(s.id)} · ${esc(s.room || '')} · ${esc(s.sourceLang)} → ${esc(s.targetLangs.join(', '))}</div></td>
       <td class="${live ? cls(m.lastAudioAt, 3000, 8000) : 'bad'}">${s.source ? `${s.source} · ${ago(m.lastAudioAt)}` : 'sin fuente'}<div class="small">${m.audioSeconds || 0} s recibidos · ${m.audioDb != null && s.source ? m.audioDb + ' dBFS' : ''}${m.deadAir ? ' · <b style="color:#FFBA00">SIN SEÑAL</b>' : ''}</div></td>
       <td class="${st.live ? 'ok' : 'small'}">${st.live ? 'conectado' : 'inactivo'}<div class="small">${st.engine || ''}</div></td>
       <td class="${live ? cls(m.lastPartialAt, 5000, 15000) : 'small'}">parcial ${ago(m.lastPartialAt)}<div class="small">final ${ago(m.lastFinalAt)}</div></td>
       <td>${m.trAvgMs != null ? m.trAvgMs + ' ms' : '—'}<div class="small">${m.trCount || 0} ok</div></td>
       <td>${s.viewers}</td>
       <td>${s.segments}</td>
-      <td class="${(m.trErrors || m.engineErrors) ? 'bad' : 'small'}">${(m.trErrors || 0) + (m.engineErrors || 0)}${st.error ? `<div class="small">${st.error}</div>` : ''}</td>
+      <td class="${(m.trErrors || m.engineErrors) ? 'bad' : 'small'}">${(m.trErrors || 0) + (m.engineErrors || 0)}${st.error ? `<div class="small">${esc(st.error)}</div>` : ''}</td>
       <td class="small"><a href="/operator/${s.id}">operador</a> · <a href="/s/${s.id}?lang=es">audiencia</a> · <a href="/api/sessions/${s.id}/transcript.srt?lang=es">SRT</a> · <a href="/s/${s.id}?lang=es&tv=1">pantalla+QR</a> · <a href="/api/sessions/${s.id}/qr.svg">QR</a> · <a href="/api/sessions/${s.id}/now.txt?lang=es">now.txt</a></td>
     </tr>`;
   }).join('');

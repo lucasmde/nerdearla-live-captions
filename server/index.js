@@ -36,6 +36,23 @@ app.use(express.static(path.join(config.root, 'public')));
 app.use(express.json());
 app.set('trust proxy', true);
 
+// Basic per-IP rate limit for expensive/abusable endpoints (AI summary, outbound mail).
+// In-memory is fine here: single instance, and the point is to blunt a burst, not be exact.
+function rateLimit({ windowMs, max }) {
+  const hits = new Map();
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || 'unknown';
+    const arr = (hits.get(key) || []).filter((t) => now - t < windowMs);
+    if (arr.length >= max) return res.status(429).json({ error: 'Demasiadas solicitudes, esperá un momento.' });
+    arr.push(now); hits.set(key, arr);
+    if (hits.size > 5000) for (const [k, v] of hits) if (!v.some((t) => now - t < windowMs)) hits.delete(k);
+    next();
+  };
+}
+const summaryLimiter = rateLimit({ windowMs: 60_000, max: 6 });
+const mailLimiter = rateLimit({ windowMs: 60_000, max: 3 });
+
 // --- v2: identity -------------------------------------------------------------
 // Guest names are validated (2-40 chars, letters/numbers, no links); invalid -> '' (anonymous, read-only).
 const guestName = (raw) => { const n = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 40); return n.length >= 2 && !/https?:|www\.|@/i.test(n) && /\p{L}/u.test(n) ? n : ''; };
@@ -56,7 +73,7 @@ app.get('/api/auth/github/callback', async (req, res) => {
     const back = JSON.parse(Buffer.from(String(req.query.state), 'base64url').toString()).back || '/';
     const session = await auth.loginWithGithub(String(req.query.code), ghRedirect(req));
     res.setHeader('Set-Cookie', [auth.cookieFor(session, req.secure || req.headers['x-forwarded-proto'] === 'https'), 'lc_gh=; Path=/; Max-Age=0']);
-    res.redirect(back.startsWith('/') ? back : '/');
+    res.redirect(back.startsWith('/') && !back.startsWith('//') ? back : '/');
   } catch (e) { res.status(401).send('No se pudo iniciar sesión con GitHub: ' + String(e?.message || e).slice(0, 120)); }
 });
 app.get('/api/me', (req, res) => { const s = auth.fromRequest(req); res.json(s ? { name: s.name, email: s.email, picture: s.picture, canSpeak: s.canSpeak, isAdmin: auth.isAdmin(s) } : null); });
@@ -180,7 +197,7 @@ app.get('/api/sessions/:id/qr.svg', async (req, res) => {
 });
 
 // "What did I miss?": AI recap of the talk so far for people who arrive late.
-app.get('/api/sessions/:id/summary', async (req, res) => {
+app.get('/api/sessions/:id/summary', summaryLimiter, async (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: 'unknown session' });
   try {
@@ -227,7 +244,7 @@ app.get('/metrics', (_req, res) => {
 
 // v2: e-mail the transcript of a time window. Body: { to, lang, from, to, fmt }
 app.get('/api/mail/status', (_req, res) => res.json({ enabled: mailer.enabled, provider: mailer.provider }));
-app.post('/api/sessions/:id/transcript/mail', async (req, res) => {
+app.post('/api/sessions/:id/transcript/mail', mailLimiter, async (req, res) => {
   const s = sessions.get(req.params.id);
   if (!s) return res.status(404).json({ error: 'unknown session' });
   if (!mailer.enabled) return res.status(503).json({ error: 'El envío por mail no está configurado en este servidor (SMTP_URL o RESEND_API_KEY).' });

@@ -259,7 +259,8 @@ try { applyTheme(localStorage.getItem('lc_theme') || 'dark'); } catch {}
 $('#who').onclick = () => { const p = $('#people'); p.style.display = p.style.display === 'none' ? '' : 'none'; renderPeople(); };
 function renderPeople() {
   const p = lastPresence; const box = $('#people'); if (!p) { box.textContent = 'Nadie conectado todavía.'; return; }
-  const item = (x) => `<div class="person">${x.picture ? `<img src="${x.picture}" alt="">` : `<span class="ini">${(x.name || '?').slice(0, 1).toUpperCase()}</span>`}<span>${x.name || 'Anónimo'}</span><span class="muted">${x.role === 'speaker' ? '🎤 expositor' : '🎧 oyente'}</span></div>`;
+  const safePic = (u) => /^https:\/\//i.test(String(u || '')) ? esc(u) : '';
+  const item = (x) => `<div class="person">${safePic(x.picture) ? `<img src="${safePic(x.picture)}" alt="">` : `<span class="ini">${esc((x.name || '?').slice(0, 1).toUpperCase())}</span>`}<span>${esc(x.name || 'Anónimo')}</span><span class="muted">${x.role === 'speaker' ? '🎤 expositor' : '🎧 oyente'}</span></div>`;
   box.innerHTML = `<b>${p.total} en la sala</b>` + (p.people || []).map(item).join('') + (p.total > (p.people || []).length ? `<div class="muted">y ${p.total - p.people.length} más…</div>` : '');
 }
 function saveMe(name, role) { if (limited() && role === 'speaker') role = 'listener'; me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); $('#guestBadge').style.display = limited() && me.role ? '' : 'none'; }
