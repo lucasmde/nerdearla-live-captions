@@ -13,11 +13,13 @@ Previous lines are context only; do not translate them. If the last line is alre
 
 const buildPrompt = (text, context) => [...context.slice(-4), text].map((l, i, a) => (i === a.length - 1 ? `LAST: ${l}` : `- ${l}`)).join('\n');
 
+const SUMMARY_SYSTEM = (lang) => `You are helping someone who just walked into a conference talk. Summarize the transcript so far in ${langLabel(lang)} (${lang}) in at most 5 short bullet points (plain text, one per line, starting with "• "). Keep names, products and numbers exact. No preamble.`;
+
 const BATCH_SYSTEM = (target) => `You are a subtitle translator at a tech conference. Translate EACH line of the transcript into ${langLabel(target)} (${target}).
 Answer ONLY with a JSON array of strings, same length and order as the input lines. Keep product names, code identifiers, acronyms and proper nouns unchanged.`;
 
 export function makeTranslator(cfg, log) {
-  if (cfg.translator === 'none') return { translateMany: async (t, targets) => Object.fromEntries(targets.map((l) => [l, t])), translateBatch: async (ts) => ts };
+  if (cfg.translator === 'none') return { translateMany: async (t, targets) => Object.fromEntries(targets.map((l) => [l, t])), translateBatch: async (ts) => ts, summarize: async (lines) => lines.slice(-5).join(' ') };
   if (cfg.translator === 'ollama') return ollamaTranslator(cfg, log);
   return geminiTranslator(cfg, log);
 }
@@ -27,6 +29,22 @@ function geminiTranslator(cfg, log) {
   const models = [cfg.translateModel, ...cfg.translateFallbackModels.filter((m) => m !== cfg.translateModel)];
   const cooldown = new Map(); // model -> timestamp until which it is rate limited
   return {
+    /** "What did I miss?": short recap of the talk so far, in the requested language. */
+    async summarize(lines, lang) {
+      const prompt = lines.join('\n');
+      for (const model of models) {
+        if ((cooldown.get(model) || 0) > Date.now()) continue;
+        try {
+          const res = await ai.models.generateContent({ model, contents: prompt, config: { systemInstruction: SUMMARY_SYSTEM(lang), temperature: 0.3, maxOutputTokens: 500, thinkingConfig: { thinkingLevel: 'minimal' } } });
+          if (res.text?.trim()) return res.text.trim();
+        } catch (e) {
+          const msg = String(e?.message || e);
+          if (msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED')) { cooldown.set(model, Date.now() + 30000); continue; }
+          log?.('summary', `${model}: ${msg.slice(0, 100)}`);
+        }
+      }
+      throw new Error('summary unavailable (quota)');
+    },
     async translateBatch(texts, target) {
       const prompt = texts.map((t, i) => `${i + 1}. ${t}`).join('\n');
       for (const model of models) {
@@ -77,6 +95,7 @@ function geminiTranslator(cfg, log) {
 function ollamaTranslator(cfg) {
   return {
     async translateBatch(texts, target) { const out = []; for (const t of texts) out.push((await this.translateMany(t, [target]))[target]); return out; },
+    async summarize(lines, lang) { const r = await this.translateMany('Resumí en 5 puntos, en ' + langLabel(lang) + ':\n' + lines.join('\n'), [lang]); return r[lang]; },
     async translateMany(text, targets, context = []) {
       const r = await fetch(`${cfg.ollamaUrl}/api/chat`, {
         method: 'POST',

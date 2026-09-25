@@ -51,6 +51,7 @@ npm test
 ```
 
 - `test/unit.test.js`: detección de idioma, pipeline de sesión (finales una sola vez, corte en oraciones, parciales sin repetir texto ya finalizado, persistencia JSONL) y cookies de sesión firmadas.
+- `test/features.test.js`: QR de la sala, resumen "¿qué me perdí?", ticker `now.txt/json`, métricas Prometheus y detección de "sin señal" sobre el servidor real.
 - `test/e2e.test.js`: levanta el servidor real en modo simulado y verifica de punta a punta: audio → parcial → final → traducción, presencia, chat, exportación por rango horario (TXT/VTT), agregado de idioma a pedido de un espectador y respuesta del endpoint de mail sin proveedor.
 
 Se ejecutan en GitHub Actions en cada push (`.github/workflows/ci.yml`).

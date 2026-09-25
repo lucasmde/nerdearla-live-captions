@@ -20,6 +20,7 @@
     "express": "^5.2.1",
     "google-auth-library": "^11.1.0",
     "nodemailer": "^10.0.10",
+    "qrcode": "^1.5.4",
     "ws": "^8.21.3"
   }
 }

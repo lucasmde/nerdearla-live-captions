@@ -1,0 +1,18 @@
+# One-click deploy on Render (https://render.com): New + Blueprint, pick this repo.
+services:
+  - type: web
+    name: nerdearla-live-captions
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: ENGINE
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: INGEST_TOKEN
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true

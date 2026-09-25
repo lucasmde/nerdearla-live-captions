@@ -1,0 +1,26 @@
+# Minimal Kubernetes deployment (one pod is enough for ~10 stages; the API does the heavy lifting).
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: live-captions }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: live-captions } }
+  template:
+    metadata: { labels: { app: live-captions } }
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/lucasmde/nerdearla-live-captions:latest   # or build from the Dockerfile
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: ENGINE, value: gemini }
+            - { name: GEMINI_API_KEY, valueFrom: { secretKeyRef: { name: live-captions, key: GEMINI_API_KEY } } }
+            - { name: INGEST_TOKEN, valueFrom: { secretKeyRef: { name: live-captions, key: INGEST_TOKEN } } }
+            - { name: PUBLIC_URL, value: https://captions.example.org }
+          readinessProbe: { httpGet: { path: /api/health, port: 8080 }, periodSeconds: 5 }
+          resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: live-captions }
+spec: { selector: { app: live-captions }, ports: [{ port: 80, targetPort: 8080 }] }

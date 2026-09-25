@@ -20,7 +20,7 @@ export class LiveSession {
     this.source = null; // 'browser' | 'ingest' | null
     this.bytes = 0;
     this.transcriber = null;
-    this.metrics = { lastAudioAt: 0, lastPartialAt: 0, lastFinalAt: 0, trCount: 0, trMsTotal: 0, trErrors: 0, engineErrors: 0, segLatencyMs: 0 };
+    this.metrics = { lastAudioAt: 0, lastPartialAt: 0, lastFinalAt: 0, trCount: 0, trMsTotal: 0, trErrors: 0, engineErrors: 0, segLatencyMs: 0, audioDb: -90, lastLoudAt: 0, deadAir: false };
     fs.mkdirSync(cfg.transcriptsDir, { recursive: true });
     this.logFile = path.join(cfg.transcriptsDir, `${this.id}.jsonl`);
     if (!translatorSingleton) {
@@ -58,8 +58,29 @@ export class LiveSession {
     if (this.source !== source) { this.source = source; this.hub.setStatus(this.id, { source }); }
     this.bytes += buf.length;
     this.metrics.lastAudioAt = Date.now();
+    this.meter(buf);
     this.ensureTranscriber();
     this.transcriber.sendAudio(buf);
+  }
+
+  /** Cheap RMS meter over incoming PCM16 -> dBFS; flags dead air (signal below -50 dBFS for 20 s). */
+  meter(buf) {
+    let sum = 0; const n = buf.length >> 1;
+    for (let i = 0; i < n; i += 4) { const v = buf.readInt16LE(i * 2) / 32768; sum += v * v; }
+    const rms = Math.sqrt(sum / Math.max(1, Math.ceil(n / 4)));
+    const db = rms > 0 ? Math.max(-90, Math.round(20 * Math.log10(rms))) : -90;
+    this.metrics.audioDb = db;
+    const now = Date.now();
+    if (db > -50) this.metrics.lastLoudAt = now;
+    const silent = now - (this.metrics.lastLoudAt || this.metrics.firstAudioAt || (this.metrics.firstAudioAt = now)) > (this.cfg.deadAirMs || 20000);
+    if (silent !== this.metrics.deadAir) { this.metrics.deadAir = silent; this.hub.setStatus(this.id, { deadAir: silent }); if (silent) this.log('audio', 'dead air: no signal above -50 dBFS for 20 s'); }
+  }
+
+  /** "What did I miss?": recap of the last ~40 final segments in the viewer's language. */
+  async summary(lang = 'es') {
+    const lines = (this.hub.history.get(this.id) || []).slice(-60).map((seg) => seg.text);
+    if (!lines.length) return null;
+    return this.translator.summarize(lines, normLang(lang) || 'es');
   }
 
   sourceGone(source) {

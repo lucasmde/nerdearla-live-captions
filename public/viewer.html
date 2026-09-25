@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Subtítulos en vivo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -26,7 +26,15 @@
       <button class="btn" id="orig" title="Mostrar también el idioma original">Mostrar original</button>
       <button class="btn" id="minus">A−</button><button class="btn" id="plus">A+</button>
       <button class="btn" id="clear" title="Borra lo que hay en pantalla (el historial sigue guardado)">Limpiar pantalla</button>
+      <button class="btn" id="pause" title="Congela la pantalla para releer; volvé al vivo cuando quieras">⏸ Pausar para releer</button>
+      <button class="btn" id="contrast" title="Modo de alta legibilidad: letra más grande, alto contraste, últimas líneas">♿ Alto contraste</button>
     </div>
+    <div class="row"><b>Sala</b>
+      <button class="btn" id="missed" title="Resumen con IA de lo que se dijo hasta ahora, en tu idioma">🕒 ¿Qué me perdí?</button>
+      <button class="btn" id="qrBtn" title="Código QR de esta sala para proyectar o imprimir">▦ QR de la sala</button>
+      <a class="btn" id="tvLink" href="#" title="Pantalla de sala: subtítulos grandes + QR">📺 Modo pantalla</a>
+    </div>
+    <div id="missedBox" class="missed" style="display:none"></div>
     <div class="row"><b>Exportar</b>
       <span class="muted">Desde</span><input type="time" id="expFrom" class="btn" step="60">
       <span class="muted">hasta</span><input type="time" id="expTo" class="btn" step="60">
@@ -77,6 +85,7 @@
   <form class="chat-form" id="chatForm"><input id="chatInput" class="btn" placeholder="Escribí un mensaje…" maxlength="500" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
 </aside>
 <main class="captions" id="captions"><p class="seg waiting" id="waiting">Esperando audio de la sesión…</p></main>
+<img id="tvQr" class="tvqr" alt="" style="display:none">
 <script>
 const id = location.pathname.split('/').pop();
 const q = new URLSearchParams(location.search);
@@ -184,7 +193,7 @@ function connect() {
     else if (m.type === 'status') status(m.status);
   };
 }
-function status(s) { if (s.source && s.live) setBadge('live', 'en vivo'); else if (s.error) setBadge('off', 'error'); else setBadge('', 'sin audio'); }
+function status(s) { if (s.deadAir && s.source) setBadge('off', 'sin señal'); else if (s.source && s.live) setBadge('live', 'en vivo'); else if (s.error) setBadge('off', 'error'); else setBadge('', 'sin audio'); }
 function setBadge(cls, txt) { const b = $('#st'); b.className = 'badge ' + cls; b.lastElementChild.textContent = txt; }
 function trim() { while (segs.size > 40) segs.delete(segs.keys().next().value); }
 
@@ -221,6 +230,27 @@ function renderPartial(m) {
 }
 function scroll() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
 $('#clear').onclick = () => { segs.clear(); if (partialEl) { partialEl.remove(); partialEl = null; } rerender(); };
+// Pause to re-read: freeze what is on screen; messages keep arriving and are shown when you resume.
+let paused = false;
+$('#pause').onclick = () => { paused = !paused; $('#pause').textContent = paused ? '▶ Volver al vivo' : '⏸ Pausar para releer'; document.body.classList.toggle('paused', paused); if (!paused) rerender(); };
+const _rerender = rerender; rerender = function () { if (!paused) _rerender(); };
+const _renderPartial = renderPartial; renderPartial = function (m) { if (!paused) _renderPartial(m); };
+// High-contrast / low-vision mode (persists per device).
+const hc = () => document.body.classList.contains('hc');
+$('#contrast').onclick = () => { document.body.classList.toggle('hc'); try { localStorage.setItem('lc_hc', hc() ? '1' : ''); } catch {} };
+try { if (localStorage.getItem('lc_hc') && !new URLSearchParams(location.search).get('tv')) document.body.classList.add('hc'); } catch {}
+// "What did I miss?": AI recap in the viewer's language.
+$('#missed').onclick = async () => {
+  const box = $('#missedBox'); box.style.display = ''; box.textContent = 'Resumiendo lo dicho hasta ahora…';
+  try { const r = await fetch(`/api/sessions/${id}/summary?lang=${encodeURIComponent(lang)}`); const j = await r.json(); box.textContent = j.text || j.error || 'Sin resumen.'; }
+  catch { box.textContent = 'No se pudo generar el resumen.'; }
+};
+$('#qrBtn').onclick = () => {
+  const box = $('#missedBox'); box.style.display = '';
+  box.innerHTML = `<img class="qr" src="/api/sessions/${id}/qr.svg?lang=${encodeURIComponent(lang)}" alt="QR de la sala"><div class="muted">${location.origin}/s/${id}?lang=${lang}</div>`;
+};
+$('#tvLink').href = `/s/${id}?lang=${lang}&tv=1`;
+if (new URLSearchParams(location.search).get('tv')) { document.body.classList.add('tv'); const q = $('#tvQr'); q.src = `/api/sessions/${id}/qr.svg?lang=${encodeURIComponent(lang)}`; q.style.display = ''; }
 $('#expGo').onclick = () => {
   const q = new URLSearchParams({ lang }); if ($('#expFrom').value) q.set('from', $('#expFrom').value); if ($('#expTo').value) q.set('to', $('#expTo').value);
   const a = document.createElement('a'); a.href = `/api/sessions/${id}/transcript.${$('#expFmt').value}?${q}`; a.download = `${id}-${lang}.${$('#expFmt').value}`; document.body.appendChild(a); a.click(); a.remove();
@@ -304,9 +334,10 @@ $('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
 function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }
 $('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('on', showOrig); rerender(); };
 if (showOrig) $('#orig').classList.add('on');
-saveMe(me.name, me.role || (document.body.classList.contains('overlay') ? 'listener' : me.role));
+const screenMode = document.body.classList.contains('overlay') || new URLSearchParams(location.search).get('tv');
+saveMe(me.name, me.role || (screenMode ? 'listener' : me.role));
 if (me.role) connect();
-initIdentity();
+if (!screenMode) initIdentity();
 </script>
 </body>
 </html>

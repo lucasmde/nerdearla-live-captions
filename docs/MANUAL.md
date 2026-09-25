@@ -30,6 +30,13 @@ Tres roles:
 - Un dominio con HTTPS (por ejemplo `captions.miconferencia.org`). Es obligatorio si vas a usar la consola del operador en el navegador: los navegadores sólo dan acceso al micrófono en páginas seguras.
 - Una API key de Gemini: https://aistudio.google.com → *Get API key*. Activá la facturación del proyecto de Google Cloud para no quedar limitado por las cuotas del nivel gratuito (15 pedidos por minuto por modelo).
 
+### En la nube en un clic
+
+- **Render**: *New → Blueprint*, elegí el repo (usa `render.yaml`); cargá `GEMINI_API_KEY` y `PUBLIC_URL`. Así está montada la demo pública.
+- **Railway**: *New project → Deploy from GitHub* (usa `railway.json`).
+- **Google Cloud Run**: `GEMINI_API_KEY=... ./deploy/cloudrun.sh <proyecto> southamerica-east1`.
+- **Kubernetes**: `kubectl apply -f deploy/kubernetes.yaml` (creá antes el secret `live-captions`).
+
 ### Con Docker (recomendado)
 
 ```bash
@@ -109,7 +116,8 @@ Alternativas a la consola web:
 - `https://captions.miconferencia.org/` lista los escenarios; cada tarjeta muestra si hay audio en vivo.
 - `https://captions.miconferencia.org/s/main?lang=es` es la vista de subtítulos. Ese es el link para el **QR de la sala**.
 - Botones: idioma, **ORIG** (muestra también la frase original debajo de la traducción), **A−/A+** tamaño de letra.
-- Quien entra tarde ve las últimas frases de la charla.
+- Quien entra tarde ve las últimas frases de la charla, y con ⚙ → **¿Qué me perdí?** obtiene un resumen con IA de lo dicho hasta ahora, en su idioma.
+- ⚙ → **Pausar para releer** congela la pantalla (los subtítulos siguen llegando por detrás) y **Volver al vivo** la retoma. **Alto contraste** activa el modo para baja visión / personas sordas: tipografía Atkinson Hyperlegible, letra grande, últimas tres líneas resaltadas. Se recuerda en ese dispositivo.
 
 ### 4.3 Pantalla de la sala y OBS
 
@@ -120,6 +128,9 @@ Agregá `&overlay=1` a la URL de la audiencia para obtener subtítulos grandes, 
 
 `fs=` fija el tamaño de letra en píxeles.
 
+- **Pantalla de sala con QR**: `https://captions.miconferencia.org/s/main?lang=es&tv=1` muestra los subtítulos grandes y el QR de la sala abajo a la derecha, para el proyector o una TV lateral. El QR solo, para imprimir: `/api/sessions/main/qr.svg` (usa `PUBLIC_URL` del `.env`).
+- **vMix / OBS fuente de texto / carteles LED**: `/api/sessions/main/now.txt?lang=es` devuelve el último subtítulo como texto; `now.json` agrega estado (`live`, `deadAir`) y hora.
+
 ### 4.4 Panel de producción
 
 `https://captions.miconferencia.org/admin` muestra, por sesión:
@@ -129,7 +140,9 @@ Agregá `&overlay=1` a la URL de la audiencia para obtener subtítulos grandes, 
 - **Último subtítulo**: hace cuánto salió el último parcial/final. Si hay audio pero no salen subtítulos, mirá los errores.
 - **Traducción**: latencia promedio por frase.
 - **Audiencia**: cuántas personas están conectadas a esa sesión.
-- **Errores** y links rápidos al operador, la vista de audiencia y el SRT.
+- **Errores** y links rápidos al operador, la vista de audiencia, la pantalla con QR, el QR solo, `now.txt` y el SRT.
+- **SIN SEÑAL** en la columna Audio: llega audio pero por debajo de −50 dBFS durante 20 s. Casi siempre es un cable desconectado, la consola muteada o la entrada equivocada.
+- Para Grafana u otro monitoreo, `GET /metrics` expone todo en formato Prometheus.
 
 ### 4.5 Al terminar cada charla
 

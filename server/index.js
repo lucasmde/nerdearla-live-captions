@@ -8,6 +8,7 @@ import { Hub } from './hub.js';
 import { LiveSession } from './session.js';
 import { makeAuth } from './auth.js';
 import { makeMailer } from './mail.js';
+import QRCode from 'qrcode';
 
 const app = express();
 const hub = new Hub();
@@ -19,6 +20,7 @@ for (const def of config.sessions) sessions.set(def.id, new LiveSession(def, con
 
 app.use(express.static(path.join(config.root, 'public')));
 app.use(express.json());
+app.set('trust proxy', true);
 
 // --- v2: identity -------------------------------------------------------------
 app.get('/api/config', (_req, res) => res.json({ googleClientId: auth.clientId || null, allowGuests: auth.allowGuests, engine: config.engine }));
@@ -86,6 +88,60 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
   const out = buildTranscript(s.id, { fmt: req.params.fmt, lang: req.query.lang, from: req.query.from, to: req.query.to });
   if (!out) return res.status(404).send('no transcript yet');
   res.type(out.mime).send(out.body);
+});
+
+// QR of the room URL (print it, put it on the stage screen). ?lang= is kept in the encoded link.
+const baseUrl = (req) => config.publicUrl || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
+app.get('/api/sessions/:id/qr.svg', async (req, res) => {
+  if (!sessions.has(req.params.id)) return res.status(404).end();
+  const url = `${baseUrl(req)}/s/${req.params.id}${req.query.lang ? `?lang=${encodeURIComponent(req.query.lang)}` : ''}`;
+  res.type('image/svg+xml').send(await QRCode.toString(url, { type: 'svg', margin: 1, width: 512, color: { dark: '#000000', light: '#ffffff' } }));
+});
+
+// "What did I miss?": AI recap of the talk so far for people who arrive late.
+app.get('/api/sessions/:id/summary', async (req, res) => {
+  const s = sessions.get(req.params.id);
+  if (!s) return res.status(404).json({ error: 'unknown session' });
+  try {
+    const text = await s.summary(String(req.query.lang || 'es'));
+    if (!text) return res.status(404).json({ error: 'Todavía no hay nada que resumir.' });
+    res.json({ lang: req.query.lang || 'es', text, segments: s.seq });
+  } catch (e) { res.status(503).json({ error: String(e?.message || e).slice(0, 160) }); }
+});
+
+// Ticker / data source for vMix, OBS text sources and LED walls: the latest caption as plain text or JSON.
+app.get('/api/sessions/:id/now.:fmt', (req, res) => {
+  const s = sessions.get(req.params.id);
+  if (!['txt', 'json'].includes(req.params.fmt)) return res.status(404).end();
+  if (!s) return res.status(404).end();
+  const hist = hub.history.get(s.id) || [];
+  const last = hist[hist.length - 1];
+  const lang = req.query.lang;
+  const text = last ? (lang && last.tr?.[lang]) || last.text : '';
+  res.set('Cache-Control', 'no-store');
+  if (req.params.fmt === 'txt') return res.type('text/plain').send(text);
+  res.json({ session: s.id, name: s.def.name, live: !!s.source, deadAir: !!s.metrics.deadAir, text, lang: last ? (lang && last.tr?.[lang] ? lang : last.lang) : null, at: last?.t || null });
+});
+
+// Prometheus metrics (scrape /metrics; Grafana-ready).
+app.get('/metrics', (_req, res) => {
+  const L = [];
+  const g = (name, help, type = 'gauge') => L.push(`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`);
+  const now = Date.now();
+  g('livecaptions_sessions', 'Configured sessions'); L.push(`livecaptions_sessions ${sessions.size}`);
+  g('livecaptions_viewers', 'Connected audience websockets'); for (const s of sessions.values()) L.push(`livecaptions_viewers{session="${s.id}"} ${hub.viewers(s.id)}`);
+  g('livecaptions_audio_live', '1 when audio arrived in the last 5 s'); for (const s of sessions.values()) L.push(`livecaptions_audio_live{session="${s.id}"} ${s.metrics.lastAudioAt && now - s.metrics.lastAudioAt < 5000 ? 1 : 0}`);
+  g('livecaptions_audio_dbfs', 'Input level of the last audio chunk (dBFS)'); for (const s of sessions.values()) L.push(`livecaptions_audio_dbfs{session="${s.id}"} ${s.metrics.audioDb}`);
+  g('livecaptions_dead_air', '1 when no signal above -50 dBFS for 20 s'); for (const s of sessions.values()) L.push(`livecaptions_dead_air{session="${s.id}"} ${s.metrics.deadAir ? 1 : 0}`);
+  g('livecaptions_audio_seconds_total', 'Audio seconds ingested', 'counter'); for (const s of sessions.values()) L.push(`livecaptions_audio_seconds_total{session="${s.id}"} ${Math.round(s.bytes / 32000)}`);
+  g('livecaptions_segments_total', 'Final caption segments', 'counter'); for (const s of sessions.values()) L.push(`livecaptions_segments_total{session="${s.id}"} ${s.seq}`);
+  g('livecaptions_translations_total', 'Translation calls', 'counter'); for (const s of sessions.values()) L.push(`livecaptions_translations_total{session="${s.id}"} ${s.metrics.trCount}`);
+  g('livecaptions_translation_errors_total', 'Translation calls that failed on every model', 'counter'); for (const s of sessions.values()) L.push(`livecaptions_translation_errors_total{session="${s.id}"} ${s.metrics.trErrors}`);
+  g('livecaptions_translation_ms_avg', 'Average translation call latency (ms)'); for (const s of sessions.values()) L.push(`livecaptions_translation_ms_avg{session="${s.id}"} ${s.metrics.trCount ? Math.round(s.metrics.trMsTotal / s.metrics.trCount) : 0}`);
+  g('livecaptions_engine_errors_total', 'Transcription engine errors', 'counter'); for (const s of sessions.values()) L.push(`livecaptions_engine_errors_total{session="${s.id}"} ${s.metrics.engineErrors}`);
+  g('livecaptions_last_caption_age_seconds', 'Seconds since the last final caption'); for (const s of sessions.values()) L.push(`livecaptions_last_caption_age_seconds{session="${s.id}"} ${s.metrics.lastFinalAt ? Math.round((now - s.metrics.lastFinalAt) / 1000) : -1}`);
+  g('process_resident_memory_bytes', 'Resident memory'); L.push(`process_resident_memory_bytes ${process.memoryUsage().rss}`);
+  res.type('text/plain; version=0.0.4').send(L.join('\n') + '\n');
 });
 
 // v2: e-mail the transcript of a time window. Body: { to, lang, from, to, fmt }

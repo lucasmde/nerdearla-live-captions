@@ -4,7 +4,15 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 
 > Proyecto para la Vibeathon de Nerdearla 2026. Licencia Apache-2.0.
 
-[![CI](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml) · [Video (2 min)](https://youtu.be/IsrnBnpS_rE) · [Manual](docs/MANUAL.md) · [Evidencia: latencia, escala y costo](docs/EVIDENCIA.md)
+[![CI](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml) · **[Demo pública en vivo](https://nerdearla-live-captions.onrender.com)** · [Video (2 min)](https://youtu.be/IsrnBnpS_rE) · [Manual](docs/MANUAL.md) · [Evidencia: latencia, escala y costo](docs/EVIDENCIA.md)
+
+> **Probalo ahora, sin instalar nada:** entrá a https://nerdearla-live-captions.onrender.com, elegí una sala, entrá como *expositor* y apretá **Transmitir micrófono**. Desde otro celular entrá a la misma sala como *oyente* en otro idioma. (Gemini real; es una instancia chica para la demo.)
+
+| Sala con panel ⚙ y "¿Qué me perdí?" | Modo alto contraste + pausa para releer |
+|---|---|
+| ![sala](docs/img/que-me-perdi.png) | ![alto contraste](docs/img/alto-contraste.png) |
+| **Pantalla de sala con QR** (`?tv=1`) | **Panel de producción** (`/admin`) |
+| ![pantalla](docs/img/pantalla-sala.png) | ![admin](docs/img/admin.png) |
 
 ```
  escenario 1 ──┐                                   ┌── /s/main?lang=es   (celulares, pantallas)
@@ -142,13 +150,23 @@ Protocolo hacia la audiencia (JSON): `history`, `partial {text, lang, tr}`, `fin
 - **Cuentas con Google** (nombre y foto, lista de conectados oyentes/expositores, expositores por lista de mails o dominio), entrada como invitado, cierre de sesión.
 - **Chat de la sala** con control de flood, guardado junto con la transcripción.
 - **Envío por mail** de la transcripción de un período (SMTP o Resend).
+- **¿Qué me perdí?**: resumen con IA de lo dicho hasta ahora, en el idioma del espectador, para quien llega tarde.
+- **Pausar para releer** (congela la pantalla y vuelve al vivo) y **modo alto contraste** (Atkinson Hyperlegible, letra grande, últimas líneas resaltadas) pensado para personas sordas o con baja visión; respeta `prefers-reduced-motion`.
+- **QR de la sala** en el index, en el panel y en `/api/sessions/<id>/qr.svg`; **modo pantalla** `?tv=1` para el proyector: subtítulos grandes + QR para que la gente lo escanee.
+- **Detección de "sin señal"**: si llega audio pero está por debajo de −50 dBFS durante 20 s (cable o consola muteados), la sala y `/admin` lo avisan antes de que la audiencia lo note.
 
 Todo opcional y configurado por variables de entorno; ver `docs/MANUAL.md` §8.
+
+## Integraciones de producción
+
+- **Prometheus / Grafana**: `GET /metrics` (viewers, audio en vivo, nivel dBFS, sin señal, segmentos, traducciones, errores, latencia de traducción, edad del último subtítulo).
+- **vMix / OBS texto / LED**: `GET /api/sessions/<id>/now.txt?lang=es` devuelve el último subtítulo como texto plano; `now.json` agrega estado y hora. Además del overlay transparente (`/s/<id>?lang=es&overlay=1`).
+- **Despliegue en un clic**: [`render.yaml`](render.yaml) (Render Blueprint), [`railway.json`](railway.json), [`deploy/cloudrun.sh`](deploy/cloudrun.sh) (Cloud Run) y [`deploy/kubernetes.yaml`](deploy/kubernetes.yaml), además de `docker compose up`.
 
 ## Pruebas, CI y números
 
 ```bash
-npm test                                   # unit + end-to-end (servidor real en modo simulado)
+npm test                                   # unit + end-to-end + features (servidor real en modo simulado), 13 pruebas
 node tools/bench.js --sessions 10 --viewers 50 --seconds 45   # carga: 10 escenarios × 500 espectadores
 ```
 
