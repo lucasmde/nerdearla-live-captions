@@ -23,8 +23,10 @@ app.use(express.json());
 app.set('trust proxy', true);
 
 // --- v2: identity -------------------------------------------------------------
+// Guest names are validated (2-40 chars, letters/numbers, no links); invalid -> '' (anonymous, read-only).
+const guestName = (raw) => { const n = String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 40); return n.length >= 2 && !/https?:|www\.|@/i.test(n) && /\p{L}/u.test(n) ? n : ''; };
 const baseUrl = (req) => config.publicUrl || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
-app.get('/api/config', (_req, res) => res.json({ googleClientId: auth.clientId || null, github: auth.githubEnabled, allowGuests: auth.allowGuests, engine: config.engine }));
+app.get('/api/config', (_req, res) => res.json({ googleClientId: auth.clientId || null, github: auth.githubEnabled, allowGuests: auth.allowGuests, guestAccess: auth.guestAccess, engine: config.engine }));
 // Sign in with GitHub (OAuth App). Set GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET; callback = <PUBLIC_URL>/api/auth/github/callback
 const ghRedirect = (req) => `${baseUrl(req)}/api/auth/github/callback`;
 app.get('/api/auth/github', (req, res) => {
@@ -62,6 +64,8 @@ app.get('/api/sessions', (_req, res) => {
 
 // Pretty URLs for the audience viewer and the operator console.
 app.get('/s/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'viewer.html')) : res.status(404).send('unknown session'));
+// Printable / projectable access card of a room: big QR + room, talk now/next and the day's agenda.
+app.get('/s/:id/qr', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'qr.html')) : res.status(404).send('unknown session'));
 app.get('/admin', (_req, res) => res.sendFile(path.join(config.root, 'public', 'admin.html')));
 app.get('/operator/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'operator.html')) : res.status(404).send('unknown session'));
 
@@ -107,6 +111,13 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
   const out = buildTranscript(s.id, { fmt: req.params.fmt, lang: req.query.lang, from: req.query.from, to: req.query.to });
   if (!out) return res.status(404).send('no transcript yet');
   res.type(out.mime).send(out.body);
+});
+
+// Full agenda of a room (the list endpoint only carries now/next) for the access card.
+app.get('/api/sessions/:id/agenda', (req, res) => {
+  const s = sessions.get(req.params.id);
+  if (!s) return res.status(404).json({ error: 'unknown session' });
+  res.json({ event: config.event, timezone: config.timezone, url: `${baseUrl(req)}/s/${s.id}`, session: s.info(), agenda: s.def.agenda || [] });
 });
 
 // QR of the room URL (print it, put it on the stage screen). ?lang= is kept in the encoded link.
@@ -171,7 +182,7 @@ app.post('/api/sessions/:id/transcript/mail', async (req, res) => {
   const me = auth.fromRequest(req);
   const to = String(req.body?.to || me?.email || '').trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return res.status(400).json({ error: 'Dirección de mail inválida.' });
-  if (!me && !auth.allowGuests) return res.status(401).json({ error: 'Iniciá sesión para enviar por mail.' });
+  if (!auth.canParticipate(me)) return res.status(401).json({ error: 'Iniciá sesión con Google o GitHub para enviar por mail.' });
   const fmt = ['txt', 'srt', 'vtt', 'json'].includes(req.body?.fmt) ? req.body.fmt : 'txt';
   const out = buildTranscript(s.id, { fmt, lang: req.body?.lang, from: req.body?.from, to: req.body?.until });
   if (!out || !out.count) return res.status(404).json({ error: 'No hay transcripción en ese período.' });
@@ -199,7 +210,7 @@ server.on('upgrade', (req, socket, head) => {
     const tokenOk = config.ingestToken && url.searchParams.get('token') === config.ingestToken;
     const me = auth.fromRequest(req);
     const sessionOk = me && me.canSpeak;
-    const open = !config.ingestToken && (auth.allowGuests || !auth.enabled);
+    const open = !config.ingestToken && auth.canParticipate(null);
     if (!tokenOk && !sessionOk && !open) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return; }
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
@@ -209,7 +220,8 @@ server.on('upgrade', (req, socket, head) => {
       const wantsSpeaker = url.searchParams.get('role') === 'speaker';
       const who = me
         ? { name: me.name, picture: me.picture, email: me.email, role: wantsSpeaker && me.canSpeak ? 'speaker' : 'listener', lang: url.searchParams.get('lang') }
-        : { name: url.searchParams.get('name'), role: auth.allowGuests ? url.searchParams.get('role') : 'listener', lang: url.searchParams.get('lang') };
+        : { name: guestName(url.searchParams.get('name')), role: auth.canParticipate(null) ? url.searchParams.get('role') : 'listener', lang: url.searchParams.get('lang') };
+      const denied = (what) => ws.send(JSON.stringify({ type: 'toast', text: `Iniciá sesión con Google o GitHub para ${what}.` }));
       hub.subscribe(id, ws, who);
       const wanted = url.searchParams.get('lang'); if (wanted) session.addTarget(wanted);
       ws.on('message', (data, isBinary) => {
@@ -217,8 +229,8 @@ server.on('upgrade', (req, socket, head) => {
         try {
           const m = JSON.parse(data);
           if (m.type === 'setLang') { ws.who.lang = m.lang; session.addTarget(m.lang); }
-          else if (m.type === 'chat') { if (me || auth.allowGuests) { const msg = hub.chatMessage(id, ws, m.text, m.audio); if (msg) session.append({ chat: { ...msg, audio: msg.audio ? '[audio]' : undefined } }); } }
-          else if (m.type === 'hand') hub.raiseHand(id, ws, !!m.up);
+          else if (m.type === 'chat') { if (!auth.canParticipate(me)) denied('chatear'); else { const msg = hub.chatMessage(id, ws, m.text, m.audio); if (msg) session.append({ chat: { ...msg, audio: msg.audio ? '[audio]' : undefined } }); } }
+          else if (m.type === 'hand') { if (!auth.canParticipate(me)) denied('pedir la palabra'); else hub.raiseHand(id, ws, !!m.up); }
           else if (m.type === 'floor') hub.giveFloor(id, ws, m.to || null);
           else if (m.type === 'ping') ws.send(JSON.stringify({ type: 'pong', t: m.t, now: Date.now(), captionAge: session.metrics.lastPartialAt ? Date.now() - Math.max(session.metrics.lastPartialAt, session.metrics.lastFinalAt) : null, audioDb: session.metrics.audioDb, live: !!session.source }));
         } catch {}

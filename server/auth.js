@@ -26,9 +26,15 @@ export function makeAuth(cfg) {
   };
   const parseCookies = (header) => Object.fromEntries((header || '').split(';').map((c) => c.trim().split('=')).filter((kv) => kv[0]).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
 
+  const anyProvider = !!client || !!(cfg.githubClientId && cfg.githubClientSecret);
+  // With no login provider configured the room works like v1: guests get everything.
+  const guestAccess = anyProvider ? (cfg.guestAccess || 'limited') : 'full';
   return {
-    enabled: !!client,
-    allowGuests: cfg.allowGuests,
+    enabled: anyProvider,
+    guestAccess,
+    allowGuests: guestAccess !== 'off',
+    /** Can this connection (session or null) use chat, raise the hand, be a speaker, send mails? */
+    canParticipate(me) { return !!me || guestAccess === 'full'; },
     clientId: cfg.googleClientId,
 
     /** Session from an incoming HTTP/WS request, or null. */

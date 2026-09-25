@@ -59,7 +59,10 @@ export const config = {
   // --- v2: identity ---
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',           // Sign in with Google (Google Identity Services)
   sessionSecret: process.env.SESSION_SECRET || '',              // HMAC secret for the session cookie (random per start if empty)
-  allowGuests: process.env.ALLOW_GUESTS !== '0',               // let people in with just a name (no account)
+  // Who can do what without an account (only matters when Google/GitHub login is configured):
+  //   limited (default) = read subtitles with a name, no chat / hand / speaker / mail; full = like an account; off = must sign in
+  guestAccess: ['off', 'limited', 'full'].includes((process.env.GUEST_ACCESS || '').toLowerCase()) ? process.env.GUEST_ACCESS.toLowerCase() : (process.env.ALLOW_GUESTS === '0' ? 'off' : 'limited'),
+  allowGuests: process.env.ALLOW_GUESTS !== '0' && (process.env.GUEST_ACCESS || '').toLowerCase() !== 'off', // let people in with just a name (no account)
   speakerEmails: (process.env.SPEAKER_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean), // who may transmit; empty = anyone signed in
   allowedDomains: (process.env.ALLOWED_DOMAINS || '').split(',').map((s) => s.trim()).filter(Boolean), // restrict sign-in to these email domains
   publicUrl: process.env.PUBLIC_URL || '',
