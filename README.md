@@ -8,16 +8,18 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 
 > **Probalo ahora, sin instalar nada:** entrá a https://nerdearla-live-captions.onrender.com, elegí una sala, entrá como *expositor* y apretá **Transmitir micrófono**. Desde otro celular entrá a la misma sala como *oyente* en otro idioma. (Gemini real; es una instancia chica para la demo.)
 
-| Sala con panel ⚙ y "¿Qué me perdí?" | Modo alto contraste + pausa para releer |
+| Salas reales de Nerdearla 2026 con agenda "ahora / sigue" | Sala con panel ⚙ y "¿Qué me perdí?" |
 |---|---|
-| ![sala](docs/img/que-me-perdi.png) | ![alto contraste](docs/img/alto-contraste.png) |
-| **Pantalla de sala con QR** (`?tv=1`) | **Panel de producción** (`/admin`) |
-| ![pantalla](docs/img/pantalla-sala.png) | ![admin](docs/img/admin.png) |
+| ![index](docs/img/index.png) | ![sala](docs/img/que-me-perdi.png) |
+| **Modo alto contraste + pausa para releer** | **Pantalla de sala con QR** (`?tv=1`) |
+| ![alto contraste](docs/img/alto-contraste.png) | ![pantalla](docs/img/pantalla-sala.png) |
+| **Panel de producción** (`/admin`) | |
+| ![admin](docs/img/admin.png) | |
 
 ```
- escenario 1 ──┐                                   ┌── /s/main?lang=es   (celulares, pantallas)
- escenario 2 ──┤  audio PCM 16 kHz   ┌──────────┐   ├── /s/main?lang=en
- escenario N ──┴── WebSocket ──────▶ │  server  │ ──┴── /s/main?lang=es&overlay=1 (OBS / pantalla de sala)
+ escenario 1 ──┐                                   ┌── /s/gran-sala?lang=es   (celulares, pantallas)
+ escenario 2 ──┤  audio PCM 16 kHz   ┌──────────┐   ├── /s/gran-sala?lang=en
+ escenario N ──┴── WebSocket ──────▶ │  server  │ ──┴── /s/gran-sala?lang=es&overlay=1 (OBS / pantalla de sala)
    (mic / línea / RTMP / OBS)        │ 1 worker │
                                      │ x sesión │──▶ Gemini Live (STT streaming, parciales + finales)
                                      │          │──▶ Gemini Flash / Gemma (traducción por segmento con contexto)
@@ -49,7 +51,7 @@ node tools/ingest.js --session main --input demo/talk_en.mp3 &
 node tools/ingest.js --session workshop-1 --input demo/talk_es.mp3
 ```
 
-Abrí http://localhost:8080/s/main?lang=es (charla en inglés vista en español), http://localhost:8080/s/workshop-1?lang=en (charla en español vista en inglés) y http://localhost:8080/admin (panel de producción). Sin API key, `npm run mock` muestra la interfaz con una charla simulada.
+Abrí http://localhost:8080/s/gran-sala?lang=es (charla en inglés vista en español), http://localhost:8080/s/sala-abasto?lang=en (charla en español vista en inglés) y http://localhost:8080/admin (panel de producción). Sin API key, `npm run mock` muestra la interfaz con una charla simulada.
 
 En la vista de audiencia: desplegable de idioma (cambia también lo ya mostrado), **ORIG** para ver la frase original debajo, tamaño de letra, **Limpiar** pantalla y **Exportar** lo mostrado entre dos horarios en TXT/SRT/VTT/JSON.
 
@@ -94,6 +96,10 @@ node tools/ingest.js --session main --input charla.mp3
 
 El protocolo de ingest es trivial (WebSocket binario con PCM 16-bit mono 16 kHz en `ws://host/ws/ingest/<id>?token=…`), así que también se puede integrar desde OBS, un Raspberry Pi al lado de la consola, etc.
 
+## Agenda del evento: salas reales de Nerdearla 2026
+
+`sessions.example.json` trae las **salas reales de Nerdearla Argentina 2026** (Gran sala, Auditorio, Sala Abasto, Container gris) con la **agenda del viernes 25/09** tomada de nerdearla.com: 35 charlas con horario, título, orador e idioma. Con eso el sistema sabe, en hora de Buenos Aires, **qué charla está ahora y cuál sigue** en cada sala (`GET /api/sessions` → `agenda.now / agenda.next`), lo muestra en las tarjetas del index y en la cabecera de la sala con el color de cada sala, y agrega los nombres de los oradores al vocabulario del reconocedor. Para tu evento, reemplazá la agenda en `sessions.json`; los subtítulos y la operación no dependen de ella.
+
 ## Configurar las sesiones
 
 `sessions.json`:
@@ -102,7 +108,8 @@ El protocolo de ingest es trivial (WebSocket binario con PCM 16-bit mono 16 kHz 
 {
   "vocabulary": ["Nerdearla", "Kubernetes", "PostgreSQL"],
   "sessions": [
-    { "id": "main",    "name": "Main Stage", "room": "Auditorio", "sourceLang": "auto", "targetLangs": ["es", "en"] },
+    { "id": "gran-sala", "name": "Gran sala", "room": "Konex", "color": "#FF323C", "sourceLang": "auto", "targetLangs": ["es", "en"],
+      "agenda": [{ "day": "2026-09-25", "start": "13:45", "end": "14:25", "title": "El secreto para procesar terabytes de datos en JavaScript", "speaker": "Erick Wendel", "lang": "es" }] },
     { "id": "stage-2", "name": "Stage 2",    "room": "Sala B",    "sourceLang": "en",   "targetLangs": ["es", "en", "pt"] }
   ]
 }

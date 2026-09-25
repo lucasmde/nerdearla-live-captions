@@ -73,9 +73,13 @@ export const config = {
     room: s.room || '',
     sourceLang: s.sourceLang || 'auto', // 'auto' | BCP-47 (e.g. 'en', 'es')
     targetLangs: s.targetLangs || ['es', 'en'],
-    vocabulary: s.vocabulary || [],
+    vocabulary: [...(s.vocabulary || []), ...(s.agenda || []).flatMap((t) => (t.speaker || '').split(',').map((x) => x.trim()).filter(Boolean))],
+    color: s.color || '',
+    agenda: (s.agenda || []).map((t) => ({ day: t.day || '', start: t.start, end: t.end, title: t.title, speaker: t.speaker || '', lang: t.lang || '' })),
   })),
   globalVocabulary: data.vocabulary || [],
+  event: data.event || '',
+  timezone: data.timezone || process.env.TZ || 'America/Argentina/Buenos_Aires',
 };
 
 export function langLabel(code) {

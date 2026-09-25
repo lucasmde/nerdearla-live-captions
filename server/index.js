@@ -37,7 +37,7 @@ app.post('/api/auth/logout', (_req, res) => { res.setHeader('Set-Cookie', auth.c
 app.get('/api/health', (_req, res) => res.json({ ok: true, engine: config.engine, sessions: sessions.size }));
 
 app.get('/api/sessions', (_req, res) => {
-  res.json({ engine: config.engine, sessions: [...sessions.values()].map((s) => s.info()), langLabels: Object.fromEntries(
+  res.json({ engine: config.engine, event: config.event, timezone: config.timezone, sessions: [...sessions.values()].map((s) => s.info()), langLabels: Object.fromEntries(
     [...new Set([...sessions.values()].flatMap((s) => s.def.targetLangs))].map((l) => [l, langLabel(l)])) });
 });
 

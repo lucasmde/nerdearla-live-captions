@@ -80,7 +80,8 @@ npm start
 {
   "vocabulary": ["Nerdearla", "Kubernetes", "PostgreSQL", "Sysarmy"],
   "sessions": [
-    { "id": "main",    "name": "Escenario principal", "room": "Auditorio", "sourceLang": "auto", "targetLangs": ["es", "en"] },
+    { "id": "gran-sala", "name": "Gran sala", "room": "Konex", "color": "#FF323C", "sourceLang": "auto", "targetLangs": ["es", "en"],
+      "agenda": [{ "day": "2026-09-25", "start": "13:45", "end": "14:25", "title": "El secreto para procesar terabytes de datos en JavaScript", "speaker": "Erick Wendel", "lang": "es" }] },
     { "id": "sala-b",  "name": "Sala B",              "room": "Piso 2",    "sourceLang": "en",   "targetLangs": ["es", "en"] },
     { "id": "taller",  "name": "Taller",              "room": "Lab",       "sourceLang": "es",   "targetLangs": ["es", "en", "pt"] }
   ]
@@ -90,6 +91,7 @@ npm start
 - `id`: corto, sin espacios; aparece en las URLs (`/s/main`).
 - `sourceLang`: `auto` si en ese escenario hay charlas en varios idiomas; un código fijo (`en`, `es`) mejora la precisión cuando el idioma es siempre el mismo.
 - `targetLangs`: los idiomas que la audiencia puede elegir. Incluí siempre el idioma original de las charlas para que exista la opción "ver la transcripción literal".
+- `color`: color de la sala (borde de la tarjeta y barra superior). `agenda`: charlas con `day`, `start`, `end`, `title`, `speaker`, `lang`; el sistema muestra "ahora / sigue" en hora del evento (`timezone` en el archivo) y suma los oradores al vocabulario.
 - `vocabulary`: nombres propios, siglas y términos técnicos del evento. Mejora mucho el reconocimiento de nombres raros. Se puede poner uno global y otro por sesión.
 
 Después de editar `sessions.json`, reiniciá el servidor (`docker compose restart`).

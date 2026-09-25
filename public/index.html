@@ -11,7 +11,7 @@
 <body>
 <div class="brandbar"></div>
 <header class="top">
-  <div><h1>Subtítulos en vivo · Live captions</h1><div class="sub">Elegí tu sesión y tu idioma · Pick your session and language</div></div>
+  <div><h1 id="evt">Subtítulos en vivo · Live captions</h1><div class="sub" id="evtSub">Elegí tu sala y tu idioma · Pick your room and language</div></div>
   <span class="badge" id="engine"><span class="dot"></span><span>…</span></span>
 </header>
 <div class="wrap">
@@ -23,12 +23,15 @@ async function load() {
   const r = await fetch('/api/sessions'); const d = await r.json();
   document.getElementById('engine').innerHTML = `<span class="dot"></span>${d.engine === 'mock' ? 'modo demo' : 'Gemini'}`;
   const grid = document.getElementById('grid'); grid.innerHTML = '';
+  if (d.event) { document.getElementById('evt').textContent = d.event + ' · Subtítulos en vivo'; document.getElementById('evtSub').textContent = 'Elegí tu sala y tu idioma · Hora de Buenos Aires, se actualiza solo'; }
   for (const s of d.sessions) {
     const live = s.status?.live && s.source;
-    const el = document.createElement('div'); el.className = 'card';
+    const el = document.createElement('div'); el.className = 'card'; if (s.color) el.style.setProperty('--c', s.color);
+    const ag = s.agenda || {}; const talk = (t, label) => t ? `<div class="talk"><div class="when">${label} · ${t.start}–${t.end}</div><div class="ttl">${esc(t.title)}</div><div class="spk">${esc(t.speaker)}${t.lang ? ` · ${t.lang.toUpperCase()}` : ''}</div></div>` : '';
     el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
-        <h3>${esc(s.name)}</h3><span class="badge ${live ? 'live' : 'off'}"><span class="dot"></span>${live ? 'en vivo' : 'sin audio'}</span></div>
+        <h3><span class="cdot"></span>${esc(s.name)}</h3><span class="badge ${live ? 'live' : 'off'}"><span class="dot"></span>${live ? 'en vivo' : 'sin audio'}</span></div>
       <div class="room">${esc(s.room || '')} · ${s.viewers} viendo</div>
+      ${talk(ag.now, 'AHORA') || (ag.next ? '' : (s.talks ? '<div class="talk"><div class="when">SIN CHARLAS AHORA</div></div>' : ''))}${talk(ag.next, 'SIGUE')}
       <div class="langs">${s.targetLangs.map(l => `<a class="pill" href="/s/${s.id}?lang=${l}">${esc(d.langLabels[l] || l)}</a>`).join('')}</div>
       <div class="langs" style="margin-top:8px"><a class="pill" href="/s/${s.id}?lang=es&tv=1" title="Pantalla de sala con QR">📺 pantalla</a><a class="pill" href="/api/sessions/${s.id}/qr.svg" title="QR para imprimir">▦ QR</a></div>`;
     grid.appendChild(el);

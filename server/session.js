@@ -207,9 +207,24 @@ export class LiveSession {
     fs.appendFile(this.logFile, JSON.stringify(obj) + '\n', () => {});
   }
 
+  /** Current and next talk from the session agenda (event time zone). */
+  agendaNow(now = new Date()) {
+    const a = this.def.agenda || [];
+    if (!a.length) return null;
+    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: this.cfg.timezone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+    const parts = Object.fromEntries(fmt.formatToParts(now).map((p) => [p.type, p.value]));
+    const day = `${parts.year}-${parts.month}-${parts.day}`, hm = `${parts.hour === '24' ? '00' : parts.hour}:${parts.minute}`;
+    const today = a.filter((t) => !t.day || t.day === day).sort((x, y) => x.start.localeCompare(y.start));
+    const list = today.length ? today : a;
+    const cur = list.find((t) => t.start <= hm && hm < t.end) || null;
+    const next = list.find((t) => t.start > hm) || null;
+    return { now: cur, next, time: hm, day };
+  }
+
   info() {
     return {
-      id: this.id, name: this.def.name, room: this.def.room, sourceLang: this.def.sourceLang,
+      id: this.id, name: this.def.name, room: this.def.room, color: this.def.color || '', sourceLang: this.def.sourceLang,
+      agenda: this.agendaNow(), talks: (this.def.agenda || []).length,
       targetLangs: this.def.targetLangs, viewers: this.hub.viewers(this.id),
       status: this.hub.status.get(this.id) || null, source: this.source, segments: this.seq,
       metrics: { ...this.metrics, trAvgMs: this.metrics.trCount ? Math.round(this.metrics.trMsTotal / this.metrics.trCount) : null, audioSeconds: Math.round(this.bytes / 32000) },

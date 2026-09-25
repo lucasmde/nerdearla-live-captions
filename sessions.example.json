@@ -1,10 +1,357 @@
 {
-  "vocabulary": ["Nerdearla", "Konex", "Kubernetes", "PostgreSQL", "Gemini", "Gemma", "open source"],
-  "sessions": [
-    { "id": "main", "name": "Main Stage", "room": "Auditorio", "sourceLang": "auto", "targetLangs": ["es", "en"] },
-    { "id": "stage-2", "name": "Stage 2", "room": "Sala B", "sourceLang": "en", "targetLangs": ["es", "en"] },
-    { "id": "stage-3", "name": "Stage 3", "room": "Sala C", "sourceLang": "es", "targetLangs": ["es", "en"] },
-    { "id": "workshop-1", "name": "Workshop 1", "room": "Lab 1", "sourceLang": "auto", "targetLangs": ["es", "en", "pt"] },
-    { "id": "workshop-2", "name": "Workshop 2", "room": "Lab 2", "sourceLang": "auto", "targetLangs": ["es", "en"] }
-  ]
+ "event": "Nerdearla Argentina 2026",
+ "timezone": "America/Argentina/Buenos_Aires",
+ "vocabulary": [
+  "Nerdearla",
+  "Konex",
+  "Sysarmy",
+  "Kubernetes",
+  "PostgreSQL",
+  "Gemini",
+  "Gemma",
+  "open source",
+  "Valkey",
+  "DuckDB",
+  "Parquet",
+  "OpenTelemetry",
+  "Wireshark",
+  "Unikernels",
+  "VideoLAN",
+  "SQLite",
+  "ProxySQL"
+ ],
+ "sessions": [
+  {
+   "id": "gran-sala",
+   "name": "Gran sala",
+   "room": "Konex · Planta baja",
+   "color": "#FF323C",
+   "sourceLang": "auto",
+   "targetLangs": [
+    "es",
+    "en"
+   ],
+   "agenda": [
+    {
+     "day": "2026-09-25",
+     "start": "10:10",
+     "end": "10:50",
+     "title": "The Last Software Engineer",
+     "speaker": "Kent C. Dodds",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "10:50",
+     "end": "11:30",
+     "title": "Undoing Our Own Mistakes",
+     "speaker": "David Nalley",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "11:30",
+     "end": "12:10",
+     "title": "Back to the Source",
+     "speaker": "Utkarsh Sengar",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "12:10",
+     "end": "12:50",
+     "title": "What's new in AI Audio?",
+     "speaker": "Thor Schaeff",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "13:45",
+     "end": "14:25",
+     "title": "El secreto para procesar terabytes de datos en JavaScript",
+     "speaker": "Erick Wendel",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "14:25",
+     "end": "15:05",
+     "title": "Side projects que por fin hice deploy",
+     "speaker": "Nelly Andrade, Ana Cunha",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "15:05",
+     "end": "15:45",
+     "title": "La IA no funciona... sin un modelo de dominio",
+     "speaker": "Tomás Ruiz",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "15:45",
+     "end": "16:25",
+     "title": "Death to the textarea (and what to do about it)",
+     "speaker": "Frédéric Harper",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "16:25",
+     "end": "17:05",
+     "title": "From VLC (VideoLAN) to AI: how Open Source is changing the world?",
+     "speaker": "Jean-Baptiste Kempf",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "17:05",
+     "end": "17:45",
+     "title": "Estamos mergeando código que nadie entiende",
+     "speaker": "Juan Pablo Flores",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "17:45",
+     "end": "18:25",
+     "title": "The Future of Building with AI: Multimodal Agents, Generative Media, and Open Models",
+     "speaker": "Omar Sanseviero",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "18:25",
+     "end": "19:05",
+     "title": "An AI That You Should Be Using More",
+     "speaker": "D. Richard Hipp",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "19:10",
+     "end": "20:00",
+     "title": "El futuro para los devs",
+     "speaker": "Miguel Ángel Durán García",
+     "lang": "es"
+    }
+   ]
+  },
+  {
+   "id": "auditorio",
+   "name": "Auditorio",
+   "room": "Konex · Auditorio",
+   "color": "#8B5CF6",
+   "sourceLang": "auto",
+   "targetLangs": [
+    "es",
+    "en"
+   ],
+   "agenda": [
+    {
+     "day": "2026-09-25",
+     "start": "10:10",
+     "end": "11:00",
+     "title": "Kubernetes Is the AI OS: The Open Source Stack on Top, and How You Can Help Build It",
+     "speaker": "Daniel Krook",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "11:00",
+     "end": "11:40",
+     "title": "Open Source in the Age of AI",
+     "speaker": "Peter Zaitsev",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "11:40",
+     "end": "12:20",
+     "title": "Interview with SJVN",
+     "speaker": "Steven J. Vaughan-Nichols",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "12:20",
+     "end": "13:00",
+     "title": "El fin del Scraping libre: la batalla legal por los datos de entrenamiento y el código fuente",
+     "speaker": "Valeska Kraus",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "14:00",
+     "end": "14:40",
+     "title": "La evolución de JavaScript: desde la idea a la implementación",
+     "speaker": "Daniel Minor",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "14:40",
+     "end": "15:20",
+     "title": "Kubernetes: de Container Orchestration a Framework Orchestration en la era de AI",
+     "speaker": "Federico Bongiovanni",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "15:20",
+     "end": "16:00",
+     "title": "Cómo desarrollar tecnología aeroespacial con software libre",
+     "speaker": "Fernando Victor Filippetti",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "16:00",
+     "end": "16:40",
+     "title": "Por qué el open source lanza carreras (y cómo empezar hoy)",
+     "speaker": "Stormy Peters",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "16:40",
+     "end": "17:20",
+     "title": "Robin Bender Ginn at Nerdearla",
+     "speaker": "Robin Bender Ginn",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "17:20",
+     "end": "18:00",
+     "title": "Building Open Source Teams",
+     "speaker": "Bruce Momjian",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "18:00",
+     "end": "18:40",
+     "title": "Evolución de la Open Source AI: Open Weights, Open Data y licencias",
+     "speaker": "Diego Fisch",
+     "lang": "es"
+    }
+   ]
+  },
+  {
+   "id": "sala-abasto",
+   "name": "Sala Abasto",
+   "room": "Konex · Abasto",
+   "color": "#FFBA00",
+   "sourceLang": "auto",
+   "targetLangs": [
+    "es",
+    "en"
+   ],
+   "agenda": [
+    {
+     "day": "2026-09-25",
+     "start": "10:15",
+     "end": "10:55",
+     "title": "Poor man's lakehouse: analytics históricas y recovery sobre MySQL con DuckDB + Parquet",
+     "speaker": "Daniel Guzmán Burgos",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "10:55",
+     "end": "11:35",
+     "title": "Cómo funciona realmente una CDN: de Anycast a Edge Cache en 22 minutos",
+     "speaker": "Silvia Lovato",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "11:35",
+     "end": "12:15",
+     "title": "Scaling Up and Out: How Valkey Does Both",
+     "speaker": "Madelyn Olson",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "13:15",
+     "end": "13:55",
+     "title": "Lo que Wireshark no te muestra: observando el estado de TCP dentro del kernel",
+     "speaker": "Fer Gleiser",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "13:55",
+     "end": "14:35",
+     "title": "Migrando 150 apps a OpenTelemetry con agentes y skills",
+     "speaker": "Ronal Celaya, Andres Francisco Seivane",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "14:35",
+     "end": "15:15",
+     "title": "SQL Traffic Routing Without Breaking Consistency",
+     "speaker": "René Cannaò",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "15:15",
+     "end": "15:55",
+     "title": "Unikernels: ¿es el final de los contenedores?",
+     "speaker": "Tiago Caragliano",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "16:35",
+     "end": "17:15",
+     "title": "Millones mirando el mismo partido. Millones de desafíos detrás.",
+     "speaker": "Lucas Freije, Leon Perez",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "17:15",
+     "end": "17:55",
+     "title": "It's the Data, Stupid",
+     "speaker": "Federico Rosenhain",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-25",
+     "start": "17:55",
+     "end": "18:35",
+     "title": "Secretos y Kubernetes: lo que tus pods no deberían contar",
+     "speaker": "Lucas Mariani",
+     "lang": "es"
+    }
+   ]
+  },
+  {
+   "id": "container-gris",
+   "name": "Container gris",
+   "room": "Patio del Konex",
+   "color": "#00ACA8",
+   "sourceLang": "auto",
+   "targetLangs": [
+    "es",
+    "en"
+   ],
+   "agenda": [
+    {
+     "day": "2026-09-25",
+     "start": "10:30",
+     "end": "11:30",
+     "title": "Tips para trabajar en tech",
+     "speaker": "Reclutando Latinoamérica",
+     "lang": "es"
+    }
+   ]
+  }
+ ]
 }

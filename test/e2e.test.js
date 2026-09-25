@@ -41,8 +41,8 @@ test('health and sessions list', async () => {
 
 test('audio in -> partial + final + translation out, presence and chat, ranged export', async () => {
   const got = [];
-  const listener = await open(`${WSB}/ws/audience/main?name=Ana&role=listener&lang=es`, got);
-  const ingest = await open(`${WSB}/ws/ingest/main?source=ingest`);
+  const listener = await open(`${WSB}/ws/audience/gran-sala?name=Ana&role=listener&lang=es`, got);
+  const ingest = await open(`${WSB}/ws/ingest/gran-sala?source=ingest`);
   const silence = Buffer.alloc(3200);
   const pump = setInterval(() => ingest.send(silence), 100);
   try {
@@ -57,26 +57,26 @@ test('audio in -> partial + final + translation out, presence and chat, ranged e
     assert.equal(chat.msg.name, 'Ana');
     assert.equal(chat.msg.text, 'hola sala');
 
-    const all = await (await fetch(`${BASE}/api/sessions/main/transcript.txt?lang=es`)).text();
+    const all = await (await fetch(`${BASE}/api/sessions/gran-sala/transcript.txt?lang=es`)).text();
     assert.match(all, /\[\d{2}:\d{2}:\d{2}\] \[es\]/);
-    const none = await (await fetch(`${BASE}/api/sessions/main/transcript.txt?lang=es&from=${Date.now() + 3600_000}`)).text();
+    const none = await (await fetch(`${BASE}/api/sessions/gran-sala/transcript.txt?lang=es&from=${Date.now() + 3600_000}`)).text();
     assert.equal(none.trim(), '');
-    const vtt = await (await fetch(`${BASE}/api/sessions/main/transcript.vtt`)).text();
+    const vtt = await (await fetch(`${BASE}/api/sessions/gran-sala/transcript.vtt`)).text();
     assert.match(vtt, /^WEBVTT/);
   } finally { clearInterval(pump); ingest.close(); listener.close(); }
 });
 
 test('a viewer can request a language the room does not translate yet', async () => {
-  const ws = await open(`${WSB}/ws/audience/main?lang=fr`);
+  const ws = await open(`${WSB}/ws/audience/gran-sala?lang=fr`);
   await new Promise((r) => setTimeout(r, 300));
   const list = await (await fetch(`${BASE}/api/sessions`)).json();
-  assert.ok(list.sessions.find((x) => x.id === 'main').targetLangs.includes('fr'));
+  assert.ok(list.sessions.find((x) => x.id === 'gran-sala').targetLangs.includes('fr'));
   ws.close();
 });
 
 test('mail endpoint reports when no provider is configured', async () => {
   const st = await (await fetch(`${BASE}/api/mail/status`)).json();
   assert.equal(st.enabled, false);
-  const r = await fetch(`${BASE}/api/sessions/main/transcript/mail`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ to: 'a@b.co' }) });
+  const r = await fetch(`${BASE}/api/sessions/gran-sala/transcript/mail`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ to: 'a@b.co' }) });
   assert.equal(r.status, 503);
 });

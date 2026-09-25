@@ -167,6 +167,8 @@ function presence(p) { if (!p) return; lastPresence = p; if ($('#people').style.
 fetch('/api/sessions').then(r => r.json()).then(d => {
   meta = d.sessions.find(s => s.id === id); if (!meta) return;
   $('#title').textContent = meta.name; $('#sub').textContent = meta.room || '';
+  if (meta.color) document.documentElement.style.setProperty('--room', meta.color);
+  const ag = meta.agenda; if (ag && (ag.now || ag.next)) { const t = ag.now || ag.next; $('#sub').innerHTML = `${esc(meta.room || '')} · <span class="talkline">${ag.now ? 'Ahora' : 'Sigue ' + t.start} · ${esc(t.title)} — ${esc(t.speaker)}</span>`; }
   document.title = `${meta.name} · subtítulos`;
   const ALL = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文', ko: '한국어', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', sv: 'Svenska', ca: 'Català', eu: 'Euskara', gl: 'Galego', he: 'עברית', id: 'Bahasa Indonesia', uk: 'Українська', vi: 'Tiếng Việt', th: 'ไทย', el: 'Ελληνικά', ro: 'Română', cs: 'Čeština', da: 'Dansk', fi: 'Suomi', no: 'Norsk', hu: 'Magyar' };
   const L = $('#langSel'); L.innerHTML = '';
