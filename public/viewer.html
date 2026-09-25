@@ -263,7 +263,8 @@ function renderPeople() {
   box.innerHTML = `<b>${p.total} en la sala</b>` + (p.people || []).map(item).join('') + (p.total > (p.people || []).length ? `<div class="muted">y ${p.total - p.people.length} más…</div>` : '');
 }
 function saveMe(name, role) { if (limited() && role === 'speaker') role = 'listener'; me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); $('#guestBadge').style.display = limited() && me.role ? '' : 'none'; }
-if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
+const isScreen = document.body.classList.contains('overlay') || new URLSearchParams(location.search).get('tv');
+if (!me.role && !isScreen) $('#welcome').style.display = 'flex';
 // Signed-in people (Google/GitHub) already have a name: never block them on the hidden name field.
 const validName = (n) => { n = String(n || '').replace(/\s+/g, ' ').trim(); return n.length >= 2 && n.length <= 40 && !/https?:|www\.|@/i.test(n) && /\p{L}/u.test(n) ? n : ''; };
 const enterName = () => account?.name || validName($('#wName').value);

@@ -44,7 +44,7 @@ export const config = {
   // Text model used to translate finalized segments.
   translateModel: process.env.TRANSLATE_MODEL || 'gemini-3.5-flash-lite',
   // Tried in order when the primary model is rate limited (each model has its own free-tier bucket).
-  translateFallbackModels: (process.env.TRANSLATE_FALLBACK_MODELS || 'gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-flash-lite-latest').split(',').map((s) => s.trim()).filter(Boolean),
+  translateFallbackModels: (process.env.TRANSLATE_FALLBACK_MODELS || 'gemini-3.1-flash-lite,gemini-flash-lite-latest').split(',').map((s) => s.trim()).filter(Boolean),
   translator: process.env.TRANSLATOR || 'gemini', // gemini | ollama | none
   ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
   ollamaModel: process.env.OLLAMA_MODEL || 'gemma3:4b',
