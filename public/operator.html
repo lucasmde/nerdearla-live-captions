@@ -18,7 +18,8 @@
   <div class="card">
     <div class="kv">
       <b>Sesión</b><span id="sname">…</span>
-      <b>Fuente de audio</b><select id="dev"></select>
+      <b>Fuente de audio</b><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id="dev" style="flex:1;min-width:220px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)"></select><button class="btn" id="detect" title="Prueba todas las entradas y elige la que tiene señal">🎤 Detectar micrófono</button></div>
+      <b></b><div id="detectInfo" class="muted" style="font-size:13px"></div>
       <b>Token</b><input id="token" placeholder="INGEST_TOKEN (si el servidor lo exige)" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text)">
     </div>
     <div class="toolbar" style="margin-top:8px">
@@ -98,7 +99,38 @@ function stop() {
   $('#startMic').disabled = $('#startTab').disabled = false; $('#stop').disabled = true; $('#meter').style.width = '0';
   log('captura detenida');
 }
-$('#startMic').onclick = () => start('mic'); $('#startTab').onclick = () => start('tab'); $('#stop').onclick = stop;
+$('#startMic').onclick = () => start('mic');
+// Try every audio input for ~2 s while the operator speaks; pick the one with the strongest signal.
+$('#detect').onclick = async () => {
+  const info = $('#detectInfo'); const btn = $('#detect'); btn.disabled = true;
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop()));
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+    if (!devs.length) throw new Error('Windows no muestra ninguna entrada de audio: revisá que el micrófono esté conectado y habilitado.');
+    const results = [];
+    for (const d of devs) {
+      info.textContent = `Probando "${d.label}"… hablá ahora (${results.length + 1}/${devs.length})`;
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: d.deviceId } } });
+        const c = new AudioContext(); const src = c.createMediaStreamSource(s); const an = c.createAnalyser(); an.fftSize = 2048; src.connect(an);
+        const buf = new Float32Array(an.fftSize); let peak = 0; const t0 = Date.now();
+        while (Date.now() - t0 < 2000) { await new Promise(r => setTimeout(r, 100)); an.getFloatTimeDomainData(buf); for (const v of buf) { const a = Math.abs(v); if (a > peak) peak = a; } }
+        s.getTracks().forEach(t => t.stop()); c.close();
+        results.push({ d, peak }); log(`prueba "${d.label}": nivel ${(peak * 100).toFixed(0)}%`);
+      } catch (e) { results.push({ d, peak: -1 }); log(`prueba "${d.label}": no disponible (${e.message})`); }
+    }
+    results.sort((a, b) => b.peak - a.peak);
+    const best = results[0];
+    await listDevices();
+    if (best.peak > 0.02) {
+      $('#dev').value = best.d.deviceId;
+      info.innerHTML = `✅ Micrófono con señal: <b>${best.d.label}</b> (nivel ${(best.peak * 100).toFixed(0)}%). Ya quedó seleccionado; apretá Iniciar.`;
+    } else {
+      info.innerHTML = `⚠️ Ninguna entrada registró voz. Entradas encontradas: ${results.map(r => r.d.label).join(' · ')}. Revisá que el micrófono no esté muteado (tecla del teclado o botón en el cable) y probá de nuevo hablando fuerte.`;
+    }
+  } catch (e) { info.textContent = 'Error: ' + e.message; log('detectar: ' + e.message); }
+  btn.disabled = false;
+}; $('#startTab').onclick = () => start('tab'); $('#stop').onclick = stop;
 setInterval(() => { if (t0 && stream) $('#stats').textContent = `${Math.round((Date.now() - t0) / 1000)} s · ${Math.round(bytes / 1024)} KB`; }, 1000);
 
 // preview what the audience sees (original language)
