@@ -192,7 +192,7 @@ Todo lo de esta sección es opcional: sin configurar nada, la sala funciona como
 
 ### Chat de la sala
 
-Botón 💬 en la cabecera. Los mensajes se guardan con la transcripción (`transcripts/<id>.jsonl`) y los últimos 50 se muestran a quien entra tarde. Los expositores aparecen con 🎤.
+Botón 💬 en la cabecera. Tiene emojis, audios (mantener apretado 🎙, hasta 20 s) y **levantar la mano ✋**: el expositor ve las manos levantadas en el chat y con *dar la palabra* habilita a esa persona; mientras tanto nadie más puede escribir (ven "Esperá: X tiene la palabra") hasta que el expositor apreta *Cerrar palabra*. Los mensajes se guardan con la transcripción (`transcripts/<id>.jsonl`) y los últimos 50 se muestran a quien entra tarde. Los expositores aparecen con 🎤.
 
 ### Enviar la transcripción por mail
 

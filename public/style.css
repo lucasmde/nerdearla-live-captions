@@ -117,3 +117,22 @@ body.tv header.top, body.tv #panel, body.tv #chat { display: none !important; }
 body.tv .captions { --fs: 52px; padding: 30px 320px 40px 40px; min-height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; }
 .tvqr { position: fixed; right: 30px; bottom: 30px; width: 240px; height: 240px; background: #fff; padding: 10px; border-radius: 12px; z-index: 5; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* logo, chat extras, floor, quality, toast, day theme */
+.logo { display: inline-flex; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: .04em; text-decoration: none; margin-right: 14px; line-height: 1; padding: 6px 8px; border: 2px solid var(--line); border-radius: 8px; }
+.logo .l1 { color: var(--red); } .logo .l2 { color: var(--yellow); } .logo .l3 { color: var(--teal); }
+.emojis { display: none; flex-wrap: wrap; gap: 4px; padding: 6px 12px; border-top: 1px solid var(--line); }
+.emojis button { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; font-size: 20px; padding: 4px 6px; cursor: pointer; }
+.chat-form .btn.on { background: var(--red); color: #fff; border-color: var(--red); }
+#handBtn.on { background: var(--yellow); color: #000; border-color: var(--yellow); }
+.floor { padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel2); font-size: 13px; display: flex; flex-direction: column; gap: 6px; }
+.floor .hand { display: inline-flex; gap: 6px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; margin: 2px 0; }
+.floor .btn { padding: 3px 8px; font-size: 12px; }
+.msg audio { width: 220px; height: 32px; margin-top: 4px; display: block; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--yellow); color: #000; padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 50; }
+#q { font-variant-numeric: tabular-nums; }
+:root[data-theme="light"] { --bg: #f5f5f5; --panel: #ffffff; --panel2: #ededed; --line: #d8d8d8; --text: #111111; --muted: #555555; }
+:root[data-theme="light"] .seg { color: #111; } :root[data-theme="light"] .seg.partial { color: #7a5a00; } :root[data-theme="light"] .seg .orig { color: #444; }
+:root[data-theme="light"] .btn { color: var(--text); }
+.chat-form { flex-wrap: nowrap; } .chat-form .btn { padding: 8px 10px; flex: none; } .chat-form input { min-width: 0; }
+.emojis { gap: 3px; } .emojis button { font-size: 18px; padding: 3px 5px; }

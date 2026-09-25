@@ -199,7 +199,10 @@ server.on('upgrade', (req, socket, head) => {
         try {
           const m = JSON.parse(data);
           if (m.type === 'setLang') { ws.who.lang = m.lang; session.addTarget(m.lang); }
-          else if (m.type === 'chat') { if (me || auth.allowGuests) { const msg = hub.chatMessage(id, ws, m.text); if (msg) session.append({ chat: msg }); } }
+          else if (m.type === 'chat') { if (me || auth.allowGuests) { const msg = hub.chatMessage(id, ws, m.text, m.audio); if (msg) session.append({ chat: { ...msg, audio: msg.audio ? '[audio]' : undefined } }); } }
+          else if (m.type === 'hand') hub.raiseHand(id, ws, !!m.up);
+          else if (m.type === 'floor') hub.giveFloor(id, ws, m.to || null);
+          else if (m.type === 'ping') ws.send(JSON.stringify({ type: 'pong', t: m.t, now: Date.now(), captionAge: session.metrics.lastPartialAt ? Date.now() - Math.max(session.metrics.lastPartialAt, session.metrics.lastFinalAt) : null, audioDb: session.metrics.audioDb, live: !!session.source }));
         } catch {}
       });
       return;

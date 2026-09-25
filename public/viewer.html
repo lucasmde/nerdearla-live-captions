@@ -11,12 +11,15 @@
 <body>
 <div class="brandbar"></div>
 <header class="top">
+  <a class="logo" href="/" title="Todas las salas"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></a>
   <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
   <div class="toolbar">
     <select id="langSel" class="btn" title="Idioma de los subtítulos"></select>
     <span class="badge" id="who" title="Ver quién está conectado" style="cursor:pointer"><span>👥</span><span>…</span></span>
     <span class="badge" id="meBadge" style="display:none"><img id="meImg" alt="" style="width:18px;height:18px;border-radius:50%;display:none"><span id="meName"></span></span>
     <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
+    <span class="badge" id="q" title="Calidad en vivo: latencia de conexión · nivel de voz · retraso de subtítulos"><span>📶</span><span>…</span></span>
+    <button class="btn" id="theme" title="Modo día / noche">☀️</button>
     <button class="btn" id="chatBtn" title="Chat de la sala">💬 <span id="chatN"></span></button>
     <button class="btn" id="gear" title="Ajustes">⚙</button>
   </div>
@@ -49,7 +52,7 @@
       <select id="myRole" class="btn"><option value="listener">Oyente</option><option value="speaker">Expositor</option></select>
       <button class="btn" id="saveMe">Guardar</button>
       <span id="gBtn2"></span>
-      <button class="btn" id="logout" style="display:none">Salir de la cuenta</button>
+      <button class="btn" id="logout">Cerrar sesión / cambiar de nombre</button>
 
     </div>
     <div class="row" id="txRow" style="display:none"><b>Transmitir</b>
@@ -81,8 +84,15 @@
 <div id="people" class="popover" style="display:none"></div>
 <aside id="chat" class="chat" style="display:none">
   <div class="chat-head"><b>Chat de la sala</b><button class="btn" id="chatClose">✕</button></div>
+  <div class="floor" id="floorBar" style="display:none"></div>
   <div class="chat-list" id="chatList"></div>
-  <form class="chat-form" id="chatForm"><input id="chatInput" class="btn" placeholder="Escribí un mensaje…" maxlength="500" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
+  <div class="emojis" id="emojis"></div>
+  <form class="chat-form" id="chatForm">
+    <button class="btn" type="button" id="emojiBtn" title="Emojis">😀</button>
+    <button class="btn" type="button" id="handBtn" title="Levantar la mano para pedir la palabra">✋</button>
+    <button class="btn" type="button" id="micMsg" title="Mantené apretado para grabar un audio (máx. 20 s)">🎙</button>
+    <input id="chatInput" class="btn" placeholder="Escribí un mensaje…" maxlength="500" autocomplete="off"><button class="btn primary" type="submit">➤</button>
+  </form>
 </aside>
 <main class="captions" id="captions"><p class="seg waiting" id="waiting">Esperando audio de la sesión…</p></main>
 <img id="tvQr" class="tvqr" alt="" style="display:none">
@@ -126,7 +136,8 @@ async function initIdentity() {
   }
   if (account && !me.role) { $('#guestHint').textContent = 'Hola ' + account.name + '. ¿Entrás a escuchar o a exponer?'; $('#wName').style.display = 'none'; }
 }
-$('#logout').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); localStorage.removeItem('me'); sessionStorage.removeItem('gAsked'); location.reload(); };
+$('#logout').onclick = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {} localStorage.removeItem('me'); sessionStorage.removeItem('gAsked'); location.reload(); };
+$('#logout').style.display = '';
 function showMe() {
   if (!account) return;
   $('#gBox').style.display = 'none'; $('#gBtn2').style.display = 'none'; $('#logout').style.display = '';
@@ -142,13 +153,68 @@ function renderChat(isNew) {
   const list = $('#chatList');
   if (!chatOpen()) { if (isNew) { unread++; $('#chatN').textContent = unread; } return; }
   const hhmm = (t) => new Date(t).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-  list.innerHTML = chatMsgs.map(m => `<div class="msg ${m.role === 'speaker' ? 'spk' : ''}">${m.picture ? `<img src="${m.picture}" alt="">` : `<span class="ini">${(m.name || '?').slice(0, 1).toUpperCase()}</span>`}<div><div class="meta"><b>${esc(m.name)}</b>${m.role === 'speaker' ? ' 🎤' : ''} <span class="muted">${hhmm(m.t)}</span></div><div>${esc(m.text)}</div></div></div>`).join('');
+  list.innerHTML = chatMsgs.map(m => `<div class="msg ${m.role === 'speaker' ? 'spk' : ''}">${m.picture ? `<img src="${m.picture}" alt="">` : `<span class="ini">${(m.name || '?').slice(0, 1).toUpperCase()}</span>`}<div><div class="meta"><b>${esc(m.name)}</b>${m.role === 'speaker' ? ' 🎤' : ''} <span class="muted">${hhmm(m.t)}</span></div><div>${m.system ? `<i>${esc(m.text)}</i>` : esc(m.text)}${m.audio ? `<audio controls preload="metadata" src="${m.audio.startsWith('data:audio/') ? m.audio : ''}"></audio>` : ''}</div></div></div>`).join('');
   list.scrollTop = list.scrollHeight;
 }
 function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 $('#chatBtn').onclick = () => { const c = $('#chat'); c.style.display = chatOpen() ? 'none' : ''; document.body.classList.toggle('with-chat', chatOpen()); if (chatOpen()) { unread = 0; $('#chatN').textContent = ''; renderChat(); $('#chatInput').focus(); } };
 $('#chatClose').onclick = () => $('#chatBtn').onclick();
 $('#chatForm').onsubmit = (e) => { e.preventDefault(); const t = $('#chatInput').value.trim(); if (!t || !sock || sock.readyState !== 1) return; sock.send(JSON.stringify({ type: 'chat', text: t })); $('#chatInput').value = ''; };
+// ---- emojis
+const EMOJIS = ['👏','🔥','❤️','😂','🤯','👍','🙌','🎉','🤔','👀','💯','🚀','🙏','😍','🫡','🐧','🐍','☕','🇦🇷','✅'];
+$('#emojis').innerHTML = EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
+$('#emojiBtn').onclick = () => { const b = $('#emojis'); b.style.display = b.style.display === 'flex' ? 'none' : 'flex'; };
+$('#emojis').onclick = (e) => { if (e.target.tagName === 'BUTTON') { const i = $('#chatInput'); i.value += e.target.textContent; i.focus(); } };
+// ---- raise hand / floor
+let floor = { hands: [], holder: null }, myCid = null, handUp = false;
+$('#handBtn').onclick = () => { if (me.role === 'speaker') return; handUp = !handUp; $('#handBtn').classList.toggle('on', handUp); sock?.send(JSON.stringify({ type: 'hand', up: handUp })); };
+function renderFloor() {
+  const bar = $('#floorBar'); const isSpk = me.role === 'speaker';
+  const holder = floor.holder, hands = floor.hands || [];
+  if (!holder && !hands.length) { bar.style.display = 'none'; $('#chatInput').disabled = false; $('#chatInput').placeholder = 'Escribí un mensaje…'; return; }
+  bar.style.display = '';
+  let html = '';
+  if (holder) html += `<div class="fl"><b>✋ ${esc(holder.name)} tiene la palabra</b>${isSpk ? ` <button class="btn" data-floor="">Cerrar palabra</button>` : ''}</div>`;
+  if (hands.length) html += `<div class="fl"><span class="muted">Manos levantadas:</span> ${hands.map(h => `<span class="hand">${esc(h.name)}${isSpk ? ` <button class="btn" data-floor="${h.id}">dar la palabra</button>` : ''}</span>`).join(' ')}</div>`;
+  bar.innerHTML = html;
+  bar.querySelectorAll('[data-floor]').forEach(b => b.onclick = () => sock?.send(JSON.stringify({ type: 'floor', to: b.dataset.floor || null })));
+  const blocked = holder && holder.id !== myCid && !isSpk;
+  $('#chatInput').disabled = !!blocked; $('#chatInput').placeholder = blocked ? `Esperá: ${holder.name} tiene la palabra` : 'Escribí un mensaje…';
+  if (holder && holder.id === myCid) { handUp = false; $('#handBtn').classList.remove('on'); }
+}
+// ---- audio message (hold to record, max 20 s)
+let rec, recChunks = [], recTimer;
+const micBtn = $('#micMsg');
+async function recStart() {
+  if (rec) return;
+  try {
+    const st = await navigator.mediaDevices.getUserMedia({ audio: true });
+    rec = new MediaRecorder(st, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '' });
+    recChunks = []; rec.ondataavailable = (e) => recChunks.push(e.data);
+    rec.onstop = () => { st.getTracks().forEach(t => t.stop()); const blob = new Blob(recChunks, { type: rec.mimeType || 'audio/webm' }); rec = null; micBtn.classList.remove('on');
+      if (blob.size < 2000) return; if (blob.size > 300000) { toast('Audio demasiado largo'); return; }
+      const fr = new FileReader(); fr.onload = () => sock?.send(JSON.stringify({ type: 'chat', text: '', audio: fr.result })); fr.readAsDataURL(blob); };
+    rec.start(); micBtn.classList.add('on'); recTimer = setTimeout(recStop, 20000);
+  } catch { toast('No se pudo usar el micrófono'); }
+}
+function recStop() { clearTimeout(recTimer); if (rec && rec.state === 'recording') rec.stop(); }
+micBtn.onmousedown = recStart; micBtn.onmouseup = recStop; micBtn.onmouseleave = recStop;
+micBtn.ontouchstart = (e) => { e.preventDefault(); recStart(); }; micBtn.ontouchend = (e) => { e.preventDefault(); recStop(); };
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 3500); }
+// ---- live quality: ws round-trip, caption delay, voice level
+let rtt = null, lastPong = null;
+setInterval(() => { if (sock && sock.readyState === 1) sock.send(JSON.stringify({ type: 'ping', t: Date.now() })); }, 3000);
+function renderQuality() {
+  const b = $('#q'); if (!lastPong) return;
+  const lvl = lastPong.audioDb == null ? '' : (lastPong.audioDb > -20 ? '🔊' : lastPong.audioDb > -40 ? '🔉' : lastPong.audioDb > -55 ? '🔈' : '🔇');
+  const age = lastPong.captionAge == null ? '—' : (lastPong.captionAge < 1500 ? '<1,5 s' : Math.round(lastPong.captionAge / 1000) + ' s');
+  const cls = rtt < 150 ? 'live' : rtt < 400 ? '' : 'off';
+  b.className = 'badge ' + cls; b.lastElementChild.textContent = `${rtt} ms · ${lvl} ${lastPong.audioDb != null && lastPong.live ? lastPong.audioDb + ' dB' : 'sin audio'} · CC ${age}`;
+}
+// ---- day / night
+const applyTheme = (t) => { document.documentElement.dataset.theme = t; $('#theme').textContent = t === 'light' ? '🌙' : '☀️'; };
+$('#theme').onclick = () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; applyTheme(t); try { localStorage.setItem('lc_theme', t); } catch {} };
+try { applyTheme(localStorage.getItem('lc_theme') || 'dark'); } catch {}
 $('#who').onclick = () => { const p = $('#people'); p.style.display = p.style.display === 'none' ? '' : 'none'; renderPeople(); };
 function renderPeople() {
   const p = lastPresence; const box = $('#people'); if (!p) { box.textContent = 'Nadie conectado todavía.'; return; }
@@ -186,7 +252,10 @@ function connect() {
   ws.onclose = () => { setBadge('off', 'reconectando'); setTimeout(() => { if (sock === ws) connect(); }, 1500); };
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); presence(m.presence); chatMsgs = m.chat || []; renderChat(); }
+    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); presence(m.presence); chatMsgs = m.chat || []; renderChat(); myCid = m.you || null; floor = m.floor || floor; renderFloor(); }
+    else if (m.type === 'floor') { floor = m.floor; renderFloor(); if (floor.hands.length && me.role === 'speaker' && !chatOpen()) { unread++; $('#chatN').textContent = '✋'; } }
+    else if (m.type === 'toast') toast(m.text);
+    else if (m.type === 'pong') { rtt = Date.now() - m.t; lastPong = m; renderQuality(); }
     else if (m.type === 'chat') { chatMsgs.push(m.msg); if (chatMsgs.length > 200) chatMsgs.shift(); renderChat(true); }
     else if (m.type === 'presence') presence(m.presence);
     else if (m.type === 'final') { if (partialEl) { partialEl.remove(); partialEl = null; } segs.set(m.segment.id, m.segment); trim(); rerender(); }

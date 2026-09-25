@@ -155,7 +155,9 @@ Protocolo hacia la audiencia (JSON): `history`, `partial {text, lang, tr}`, `fin
 - **Un solo lugar para todo**: la sala `/s/<id>` tiene el panel ⚙ con idioma, vista, exportación por rango horario (TXT/SRT/VTT/JSON), identidad y, para expositores, la transmisión del micrófono.
 - **Idioma a pedido**: cualquier espectador elige entre 30 idiomas; si la sesión no lo traducía, el servidor lo agrega en caliente y rellena las últimas frases.
 - **Cuentas con Google** (nombre y foto, lista de conectados oyentes/expositores, expositores por lista de mails o dominio), entrada como invitado, cierre de sesión.
-- **Chat de la sala** con control de flood, guardado junto con la transcripción.
+- **Chat de la sala** con emojis, **audios** (mantener 🎙), **levantar la mano ✋**: el expositor da la palabra y, mientras alguien la tiene, nadie más escribe hasta que la cierra. Control de flood; se guarda junto con la transcripción.
+- **Calidad en vivo** en la cabecera: latencia de conexión, nivel de voz del escenario y retraso de subtítulos, actualizado cada 3 s.
+- **Modo día / noche**, tamaño de letra, alto contraste y "mostrar original" se recuerdan por dispositivo. Cerrar sesión / cambiar de nombre desde ⚙.
 - **Envío por mail** de la transcripción de un período (SMTP o Resend).
 - **¿Qué me perdí?**: resumen con IA de lo dicho hasta ahora, en el idioma del espectador, para quien llega tarde.
 - **Pausar para releer** (congela la pantalla y vuelve al vivo) y **modo alto contraste** (Atkinson Hyperlegible, letra grande, últimas líneas resaltadas) pensado para personas sordas o con baja visión; respeta `prefers-reduced-motion`.

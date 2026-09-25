@@ -50,3 +50,34 @@ test('metrics, ticker and summary follow the captions; silence is flagged as dea
     assert.match(m, /livecaptions_segments_total\{session="gran-sala"\} [1-9]/);
   } finally { clearInterval(pump); ws.close(); }
 });
+
+test('floor control: a listener raises a hand, the speaker gives the floor, others are muted until it is closed', async () => {
+  const WSB = BASE.replace('http', 'ws');
+  const open = (url, msgs) => new Promise((res, rej) => { const ws = new WebSocket(url); ws.on('message', (d) => msgs.push(JSON.parse(d))); ws.once('open', () => res(ws)); ws.once('error', rej); });
+  const sm = [], am = [], bm = [];
+  const spk = await open(`${WSB}/ws/audience/auditorio?name=Expo&role=speaker`, sm);
+  const ana = await open(`${WSB}/ws/audience/auditorio?name=Ana&role=listener`, am);
+  const bob = await open(`${WSB}/ws/audience/auditorio?name=Bob&role=listener`, bm);
+  try {
+    const hist = await waitFor(() => am.find((m) => m.type === 'history'), 3000, 'history');
+    ana.send(JSON.stringify({ type: 'hand', up: true }));
+    const fl = await waitFor(() => sm.find((m) => m.type === 'floor' && m.floor.hands.length === 1), 3000, 'hand seen by speaker');
+    assert.equal(fl.floor.hands[0].name, 'Ana');
+    spk.send(JSON.stringify({ type: 'floor', to: fl.floor.hands[0].id }));
+    await waitFor(() => bm.find((m) => m.type === 'floor' && m.floor.holder?.name === 'Ana'), 3000, 'floor given');
+    bob.send(JSON.stringify({ type: 'chat', text: 'me cuelo' }));
+    await waitFor(() => bm.find((m) => m.type === 'toast'), 3000, 'bob blocked');
+    assert.ok(!am.find((m) => m.type === 'chat' && m.msg.text === 'me cuelo'), 'blocked message not delivered');
+    ana.send(JSON.stringify({ type: 'chat', text: 'mi pregunta' }));
+    await waitFor(() => bm.find((m) => m.type === 'chat' && m.msg.text === 'mi pregunta'), 3000, 'holder can write');
+    spk.send(JSON.stringify({ type: 'floor', to: null }));
+    await waitFor(() => bm.find((m) => m.type === 'floor' && !m.floor.holder), 3000, 'floor closed');
+    await new Promise((r) => setTimeout(r, 800));
+    bob.send(JSON.stringify({ type: 'chat', text: 'ahora si' }));
+    await waitFor(() => am.find((m) => m.type === 'chat' && m.msg.text === 'ahora si'), 3000, 'open again');
+    ana.send(JSON.stringify({ type: 'ping', t: Date.now() }));
+    const pong = await waitFor(() => am.find((m) => m.type === 'pong'), 3000, 'pong');
+    assert.ok(typeof pong.now === 'number');
+    assert.ok(hist.you);
+  } finally { spk.close(); ana.close(); bob.close(); }
+});
