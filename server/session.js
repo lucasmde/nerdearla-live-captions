@@ -15,7 +15,7 @@ export class LiveSession {
     this.finals = []; // recent original lines (context for translation)
     this.pending = ''; // accumulating final pieces
     this.pendingTimer = null;
-    this.partialTr = { text: '', at: 0, busy: false, lastTranslated: '' };
+    this.partialTr = { text: '', at: 0, busy: false, lastTranslated: null };
     this.startedAt = Date.now();
     this.source = null; // 'browser' | 'ingest' | null
     this.bytes = 0;
@@ -132,7 +132,7 @@ export class LiveSession {
     if (this.finals.length > 8) this.finals.shift();
     this.metrics.lastFinalAt = Date.now();
     this.hub.final(this.id, seg);
-    this.partialTr.lastTranslated = '';
+    this.partialTr.lastTranslated = null;
     this.append({ ...seg });
     const targets = this.def.targetLangs.filter((l) => l !== lang);
     // same-language target: original doubles as caption
@@ -148,16 +148,18 @@ export class LiveSession {
       .catch((err) => { this.metrics.trErrors++; this.log('translate', String(err?.message || err).slice(0, 160)); });
   }
 
-  // Translate long-running partials at most every ~1.5 s so the translated view
+  // Translate long-running partials at most every ~2.5 s so the translated view
   // moves while the speaker is still talking, not only at the end of the sentence.
+  // Targets = languages viewers are actually watching (falls back to the room's first target).
   maybeTranslatePartial(text, lang) {
     if (!this.cfg.translatePartials) return;
     const p = this.partialTr;
-    const target = this.def.targetLangs.find((l) => l !== lang);
-    if (!target || p.busy || text.length < 30 || Date.now() - p.at < this.cfg.partialTranslateEveryMs || text === p.text) return;
+    let targets = this.hub.viewerLangs(this.id).filter((l) => l !== lang).slice(0, 4);
+    if (!targets.length) targets = this.def.targetLangs.filter((l) => l !== lang).slice(0, 1);
+    if (!targets.length || p.busy || text.length < 30 || Date.now() - p.at < this.cfg.partialTranslateEveryMs || text === p.text) return;
     p.busy = true; p.at = Date.now(); p.text = text;
-    this.translator.translateMany(text, [target], this.finals)
-      .then((r) => { const tr = r[target]; p.lastTranslated = tr; this.hub.partial(this.id, text, lang, tr); })
+    this.translator.translateMany(text, targets, this.finals)
+      .then((tr) => { p.lastTranslated = tr; this.hub.partial(this.id, text, lang, tr); })
       .catch(() => {})
       .finally(() => { p.busy = false; });
   }

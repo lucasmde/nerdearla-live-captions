@@ -10,13 +10,18 @@ export class Hub {
 
   subscribe(sessionId, ws, who = {}) {
     if (!this.clients.has(sessionId)) this.clients.set(sessionId, new Set());
-    ws.who = { name: String(who.name || '').slice(0, 40), role: who.role === 'speaker' ? 'speaker' : 'listener' };
+    ws.who = { name: String(who.name || '').slice(0, 40), role: who.role === 'speaker' ? 'speaker' : 'listener', lang: who.lang || null };
     this.clients.get(sessionId).add(ws);
     // Replay finalized history so late joiners see context.
     const hist = this.history.get(sessionId) || [];
     ws.send(JSON.stringify({ type: 'history', sessionId, segments: hist, status: this.status.get(sessionId) || null, presence: this.presence(sessionId) }));
     this.broadcast(sessionId, { type: 'presence', presence: this.presence(sessionId) });
     ws.on('close', () => { this.clients.get(sessionId)?.delete(ws); this.broadcast(sessionId, { type: 'presence', presence: this.presence(sessionId) }); });
+  }
+
+  /** Languages viewers of this session are currently watching. */
+  viewerLangs(sessionId) {
+    return [...new Set([...(this.clients.get(sessionId) || [])].map((c) => c.who?.lang).filter(Boolean))];
   }
 
   presence(sessionId) {

@@ -138,8 +138,10 @@ function renderPartial(m) {
   if (!m.text) return;
   if (!partialEl) { partialEl = document.createElement('p'); partialEl.className = 'seg partial'; caps.appendChild(partialEl); }
   const same = m.lang === lang;
-  partialEl.textContent = same ? m.text : (m.tr || m.text);
-  if (showOrig && !same && m.tr) { const o = document.createElement('span'); o.className = 'orig'; o.textContent = m.text; partialEl.appendChild(o); }
+  const tr = m.tr && typeof m.tr === 'object' ? m.tr[lang] : null;
+  partialEl.textContent = same ? m.text : (tr || m.text);
+  if (showOrig && !same && tr) { const o = document.createElement('span'); o.className = 'orig'; o.textContent = m.text; partialEl.appendChild(o); }
+  const w = $('#waiting'); if (w) w.remove();
   scroll();
 }
 function scroll() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }

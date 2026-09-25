@@ -83,9 +83,9 @@ server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => {
     const session = sessions.get(id);
     if (kind === 'audience') {
-      hub.subscribe(id, ws, { name: url.searchParams.get('name'), role: url.searchParams.get('role') });
+      hub.subscribe(id, ws, { name: url.searchParams.get('name'), role: url.searchParams.get('role'), lang: url.searchParams.get('lang') });
       const wanted = url.searchParams.get('lang'); if (wanted) session.addTarget(wanted);
-      ws.on('message', (data, isBinary) => { if (isBinary) return; try { const m = JSON.parse(data); if (m.type === 'setLang') session.addTarget(m.lang); } catch {} });
+      ws.on('message', (data, isBinary) => { if (isBinary) return; try { const m = JSON.parse(data); if (m.type === 'setLang') { ws.who.lang = m.lang; session.addTarget(m.lang); } } catch {} });
       return;
     }
     const source = url.searchParams.get('source') || 'ingest';
