@@ -183,7 +183,9 @@ Los archivos también quedan en la carpeta `transcripts/` del servidor (`<id>.js
 
 Todo lo de esta sección es opcional: sin configurar nada, la sala funciona como en la versión 1 (entrada con nombre, sin cuenta).
 
-### Inicio de sesión con Google
+### Inicio de sesión con Google o GitHub
+
+Para GitHub: creá una *OAuth App* en GitHub → Settings → Developer settings, con callback `https://captions.tu-dominio.org/api/auth/github/callback`, y poné `GITHUB_CLIENT_ID` y `GITHUB_CLIENT_SECRET` en `.env`. Para Google:
 
 1. En https://console.cloud.google.com/apis/credentials creá un **ID de cliente OAuth** de tipo *Aplicación web*. En *Orígenes autorizados de JavaScript* agregá `https://captions.tu-dominio.org` (y `http://localhost:8080` para probar en tu PC).
 2. Poné el ID en `.env` como `GOOGLE_CLIENT_ID=...` y reiniciá.

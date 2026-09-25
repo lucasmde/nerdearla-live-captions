@@ -154,7 +154,7 @@ Protocolo hacia la audiencia (JSON): `history`, `partial {text, lang, tr}`, `fin
 
 - **Un solo lugar para todo**: la sala `/s/<id>` tiene el panel ⚙ con idioma, vista, exportación por rango horario (TXT/SRT/VTT/JSON), identidad y, para expositores, la transmisión del micrófono.
 - **Idioma a pedido**: cualquier espectador elige entre 30 idiomas; si la sesión no lo traducía, el servidor lo agrega en caliente y rellena las últimas frases.
-- **Cuentas con Google** (nombre y foto, lista de conectados oyentes/expositores, expositores por lista de mails o dominio), entrada como invitado, cierre de sesión.
+- **Cuentas con Google o GitHub** (nombre y foto, lista de conectados oyentes/expositores, expositores por lista de mails o dominio), entrada como invitado con nombre obligatorio, cierre de sesión.
 - **Chat de la sala** con emojis, **audios** (mantener 🎙), **levantar la mano ✋**: el expositor da la palabra y, mientras alguien la tiene, nadie más escribe hasta que la cierra. Control de flood; se guarda junto con la transcripción.
 - **Calidad en vivo** en la cabecera: latencia de conexión, nivel de voz del escenario y retraso de subtítulos, actualizado cada 3 s.
 - **Modo día / noche**, tamaño de letra, alto contraste y "mostrar original" se recuerdan por dispositivo. Cerrar sesión / cambiar de nombre desde ⚙.
