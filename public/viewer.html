@@ -94,6 +94,7 @@ async function initIdentity() {
   const [cfg, who] = await Promise.all([fetch('/api/config').then(r => r.json()), fetch('/api/me').then(r => r.json())]);
   account = who;
   if (account) { me.name = account.name; localStorage.setItem('me', JSON.stringify(me)); showMe(); }
+  if (cfg.googleClientId && !account && me.role && !sessionStorage.getItem('gAsked')) { sessionStorage.setItem('gAsked', '1'); $('#welcome').style.display = 'flex'; $('#guestHint').textContent = 'Podés iniciar sesión con Google o seguir como ' + (me.name || 'invitado') + '.'; if (me.name) $('#wName').value = me.name; }
   if (cfg.googleClientId && !account) {
     $('#gBox').style.display = '';
     if (!cfg.allowGuests) { $('#guestBox').style.display = 'none'; }
@@ -108,13 +109,16 @@ async function initIdentity() {
         $('#welcome').style.display = 'none'; if (sock) sock.close(); else connect();
       } });
       google.accounts.id.renderButton($('#gBtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: 'es' });
+      google.accounts.id.renderButton($('#gBtn2'), { theme: 'filled_black', size: 'medium', text: 'signin_with', locale: 'es' });
     };
     document.head.appendChild(s);
   }
   if (account && !me.role) { $('#guestHint').textContent = 'Hola ' + account.name + '. ¿Entrás a escuchar o a exponer?'; $('#wName').style.display = 'none'; }
 }
+$('#logout').onclick = async () => { await fetch('/api/auth/logout', { method: 'POST' }); localStorage.removeItem('me'); sessionStorage.removeItem('gAsked'); location.reload(); };
 function showMe() {
   if (!account) return;
+  $('#gBox').style.display = 'none'; $('#gBtn2').style.display = 'none'; $('#logout').style.display = '';
   $('#meBadge').style.display = '';
   $('#meName').textContent = account.name;
   if (account.email && !$('#mailTo').value) $('#mailTo').value = account.email;
