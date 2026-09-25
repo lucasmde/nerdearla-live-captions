@@ -130,6 +130,11 @@ export class GeminiTranscriber {
     }
   }
 
+  /** Tell the engine the stream paused so it finalizes the pending hypothesis. */
+  endOfAudio() {
+    try { this.session?.sendRealtimeInput({ audioStreamEnd: true }); } catch {}
+  }
+
   close() {
     this.closed = true;
     clearTimeout(this.rotateTimer);

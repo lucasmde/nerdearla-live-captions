@@ -63,19 +63,24 @@ export class LiveSession {
   }
 
   sourceGone(source) {
-    if (this.source === source) { this.source = null; this.hub.setStatus(this.id, { source: null }); }
+    if (this.source === source) { this.source = null; this.hub.setStatus(this.id, { source: null }); this.transcriber?.endOfAudio?.(); }
   }
 
   onTranscript(e) {
     const lang = normLang(e.lang) || (this.def.sourceLang !== 'auto' ? this.def.sourceLang : null);
     if (e.type === 'partial') {
       this.metrics.lastPartialAt = Date.now();
-      const full = (this.pending ? this.pending + ' ' : '') + e.text;
+      // The engine's interim hypothesis is cumulative for the current turn and may
+      // repeat text that was already finalized: show only what is not final yet.
+      const rest = this.stripFinalized(e.text);
+      const full = (this.pending ? this.pending + ' ' : '') + rest;
+      if (!full.trim()) return;
       this.hub.partial(this.id, full, lang, this.partialTr.lastTranslated || null);
       this.maybeTranslatePartial(full, lang);
       return;
     }
     // final piece
+    this.turnFinal = (this.turnFinal || '') + norm(e.text);
     this.pending = (this.pending ? this.pending + ' ' : '') + e.text.trim();
     clearTimeout(this.pendingTimer);
     if (e.finished === false) {
@@ -85,10 +90,43 @@ export class LiveSession {
     }
   }
 
+  stripFinalized(text) {
+    const f = this.turnFinal || '';
+    if (!f) return text;
+    const n = norm(text);
+    let k = 0; while (k < f.length && k < n.length && f[k] === n[k]) k++;
+    if (k < f.length * 0.6) { this.turnFinal = ''; return text; } // new turn (e.g. session rotated)
+    // walk words until the normalized prefix is consumed
+    const words = text.split(/\s+/); let acc = 0, i = 0;
+    for (; i < words.length; i++) {
+      const w = norm(words[i]); const next = acc + w.length;
+      if (next > k) { if (k - acc > w.length / 2) i++; break; }
+      acc = next;
+    }
+    return words.slice(i).join(' ');
+  }
+
   flushFinal(lang) {
-    const text = this.pending.trim();
+    const whole = this.pending.trim();
     this.pending = '';
-    if (!text) return;
+    if (!whole) return;
+    if (this.def.sourceLang !== 'auto') lang = this.def.sourceLang;
+    else {
+      // Engine language ids can flicker on short segments (e.g. "Hola a todos" -> pt):
+      // combine the engine's code with a cheap stopword detector and a majority vote
+      // over the last few segments, since speakers rarely switch language mid-talk.
+      const guess = detectLang(whole);
+      this.langVotes = [...(this.langVotes || []), lang, guess].filter(Boolean).slice(-6);
+      const counts = {}; for (const l of this.langVotes) counts[l] = (counts[l] || 0) + 1;
+      lang = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || this.lastLang || 'en';
+    }
+    this.lastLang = lang;
+    // keep subtitle segments readable: split long finals at sentence boundaries
+    const parts = whole.length > 110 ? whole.split(/(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÑ¿¡"(])/).filter(Boolean) : [whole];
+    for (const text of parts) this.emitFinal(text, lang);
+  }
+
+  emitFinal(text, lang) {
     const seg = { id: `${this.id}-${++this.seq}`, t: Date.now(), rel: Date.now() - this.startedAt, text, lang, tr: {} };
     this.finals.push(text);
     if (this.finals.length > 8) this.finals.shift();
@@ -99,15 +137,15 @@ export class LiveSession {
     const targets = this.def.targetLangs.filter((l) => l !== lang);
     // same-language target: original doubles as caption
     for (const l of this.def.targetLangs) if (l === lang) this.hub.translation(this.id, seg.id, l, text);
-    for (const target of targets) {
-      const t0 = Date.now();
-      this.translator.translate(text, target, this.finals.slice(0, -1))
-        .then((tr) => {
-          this.metrics.trCount++; this.metrics.trMsTotal += Date.now() - t0;
-          this.hub.translation(this.id, seg.id, target, tr); this.append({ id: seg.id, tr: { [target]: tr } });
-        })
-        .catch((err) => { this.metrics.trErrors++; this.log('translate', target, err?.message || err); });
-    }
+    if (!targets.length) return;
+    const t0 = Date.now();
+    this.translator.translateMany(text, targets, this.finals.slice(0, -1))
+      .then((tr) => {
+        this.metrics.trCount++; this.metrics.trMsTotal += Date.now() - t0;
+        for (const [l, t] of Object.entries(tr)) this.hub.translation(this.id, seg.id, l, t);
+        this.append({ id: seg.id, tr });
+      })
+      .catch((err) => { this.metrics.trErrors++; this.log('translate', String(err?.message || err).slice(0, 160)); });
   }
 
   // Translate long-running partials at most every ~1.5 s so the translated view
@@ -116,10 +154,10 @@ export class LiveSession {
     if (!this.cfg.translatePartials) return;
     const p = this.partialTr;
     const target = this.def.targetLangs.find((l) => l !== lang);
-    if (!target || p.busy || text.length < 30 || Date.now() - p.at < 1500 || text === p.text) return;
+    if (!target || p.busy || text.length < 30 || Date.now() - p.at < this.cfg.partialTranslateEveryMs || text === p.text) return;
     p.busy = true; p.at = Date.now(); p.text = text;
-    this.translator.translate(text, target, this.finals)
-      .then((tr) => { p.lastTranslated = tr; this.hub.partial(this.id, text, lang, tr); })
+    this.translator.translateMany(text, [target], this.finals)
+      .then((r) => { const tr = r[target]; p.lastTranslated = tr; this.hub.partial(this.id, text, lang, tr); })
       .catch(() => {})
       .finally(() => { p.busy = false; });
   }
@@ -139,6 +177,27 @@ export class LiveSession {
 
   close() { this.transcriber?.close(); this.transcriber = null; }
 }
+
+// Tiny stopword-based detector for the languages we care about, used when the
+// engine does not report a language code. Cheap, no network, good enough per segment.
+const STOP = {
+  en: ['the', 'and', 'to', 'of', 'is', 'we', 'you', 'that', 'this', 'with', 'are', 'for', 'it', 'on', 'in', 'our'],
+  es: ['el', 'la', 'los', 'las', 'de', 'que', 'y', 'es', 'en', 'un', 'una', 'para', 'con', 'por', 'se', 'del', 'al', 'vamos', 'hoy', 'todos', 'muchas', 'gracias', 'bienvenidos', 'hola', 'esto', 'como', 'muy'],
+  pt: ['o', 'os', 'as', 'que', 'e', 'é', 'em', 'um', 'uma', 'para', 'com', 'não', 'do', 'da', 'vamos', 'hoje', 'todos', 'muito', 'obrigado', 'bem-vindos', 'olá', 'isso', 'como', 'você'],
+};
+function detectLang(text) {
+  const words = text.toLowerCase().replace(/[^\p{L}\s]/gu, ' ').split(/\s+/).filter(Boolean);
+  if (words.length < 3) return null;
+  let best = null, bestScore = 0;
+  for (const [lang, list] of Object.entries(STOP)) {
+    const set = new Set(list);
+    const score = words.filter((w) => set.has(w)).length;
+    if (score > bestScore) { best = lang; bestScore = score; }
+  }
+  return bestScore >= 2 ? best : null;
+}
+
+function norm(t) { return String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); }
 
 function normLang(code) {
   if (!code) return null;

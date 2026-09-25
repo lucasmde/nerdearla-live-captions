@@ -1,0 +1,10 @@
+import WebSocket from 'ws';
+const ws = new WebSocket('ws://localhost:8080/ws/audience/' + process.argv[2]);
+const t0 = Date.now();
+ws.on('message', (m) => { const j = JSON.parse(m); if (j.type === 'history') return; const t = ((Date.now()-t0)/1000).toFixed(1);
+  if (j.type === 'partial') console.log(t, 'PARTIAL', j.lang, '…' + j.text.slice(-50), j.tr ? '|| …' + j.tr.slice(-40) : '');
+  else if (j.type === 'final') console.log(t, 'FINAL  ', j.segment.lang, j.segment.text);
+  else if (j.type === 'translation') console.log(t, 'TRANS  ', j.lang, j.text);
+  else console.log(t, j.type, JSON.stringify(j.status || ''));
+});
+setTimeout(() => process.exit(0), Number(process.argv[3] || 40000));

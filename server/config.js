@@ -30,6 +30,8 @@ export const config = {
   transcribeModel: process.env.TRANSCRIBE_MODEL || 'gemini-3.5-transcribe-live',
   // Text model used to translate finalized segments.
   translateModel: process.env.TRANSLATE_MODEL || 'gemini-3.5-flash-lite',
+  // Tried in order when the primary model is rate limited (each model has its own free-tier bucket).
+  translateFallbackModels: (process.env.TRANSLATE_FALLBACK_MODELS || 'gemini-3.1-flash-lite,gemini-2.5-flash-lite,gemini-flash-lite-latest').split(',').map((s) => s.trim()).filter(Boolean),
   translator: process.env.TRANSLATOR || 'gemini', // gemini | ollama | none
   ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
   ollamaModel: process.env.OLLAMA_MODEL || 'gemma3:4b',
@@ -39,6 +41,7 @@ export const config = {
   sessionRotateMs: Number(process.env.SESSION_ROTATE_MS || 8.5 * 60 * 1000),
   // Translate long partial hypotheses too (adds cost, lowers perceived latency).
   translatePartials: process.env.TRANSLATE_PARTIALS !== '0',
+  partialTranslateEveryMs: Number(process.env.PARTIAL_TRANSLATE_EVERY_MS || 2500),
   transcriptsDir: process.env.TRANSCRIPTS_DIR || path.join(ROOT, 'transcripts'),
   sessionsFile: file,
   sessions: (data.sessions || []).map((s) => ({
