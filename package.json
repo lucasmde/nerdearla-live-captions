@@ -8,7 +8,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "ingest": "node tools/ingest.js",
-    "mock": "ENGINE=mock node server/index.js"
+    "mock": "ENGINE=mock node server/index.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "engines": {
     "node": ">=20"

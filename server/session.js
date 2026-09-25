@@ -205,7 +205,7 @@ const STOP = {
   es: ['el', 'la', 'los', 'las', 'de', 'que', 'y', 'es', 'en', 'un', 'una', 'para', 'con', 'por', 'se', 'del', 'al', 'vamos', 'hoy', 'todos', 'muchas', 'gracias', 'bienvenidos', 'hola', 'esto', 'como', 'muy'],
   pt: ['o', 'os', 'as', 'que', 'e', 'é', 'em', 'um', 'uma', 'para', 'com', 'não', 'do', 'da', 'vamos', 'hoje', 'todos', 'muito', 'obrigado', 'bem-vindos', 'olá', 'isso', 'como', 'você'],
 };
-function detectLang(text) {
+export function detectLang(text) {
   const words = text.toLowerCase().replace(/[^\p{L}\s]/gu, ' ').split(/\s+/).filter(Boolean);
   if (words.length < 3) return null;
   let best = null, bestScore = 0;
@@ -219,7 +219,7 @@ function detectLang(text) {
 
 function norm(t) { return String(t || '').toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''); }
 
-function normLang(code) {
+export function normLang(code) {
   if (!code) return null;
   return String(code).toLowerCase().split('-')[0];
 }

@@ -74,7 +74,7 @@ export class Hub {
   }
 
   partial(sessionId, text, lang, tr) {
-    this.broadcast(sessionId, { type: 'partial', text, lang, tr: tr || null });
+    this.broadcast(sessionId, { type: 'partial', text, lang, tr: tr || null, t: Date.now() });
   }
 
   setStatus(sessionId, patch) {

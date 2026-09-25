@@ -4,6 +4,8 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 
 > Proyecto para la Vibeathon de Nerdearla 2026. Licencia Apache-2.0.
 
+[![CI](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml) · [Video (2 min)](https://youtu.be/IsrnBnpS_rE) · [Manual](docs/MANUAL.md) · [Evidencia: latencia, escala y costo](docs/EVIDENCIA.md)
+
 ```
  escenario 1 ──┐                                   ┌── /s/main?lang=es   (celulares, pantallas)
  escenario 2 ──┤  audio PCM 16 kHz   ┌──────────┐   ├── /s/main?lang=en
@@ -133,9 +135,24 @@ La traducción puede correr sin salir del edificio: `TRANSLATOR=ollama OLLAMA_MO
 
 Protocolo hacia la audiencia (JSON): `history`, `partial {text, lang, tr}`, `final {segment}`, `translation {segId, lang, text}`, `status`.
 
-## Versión 2 (rama `v2`)
+## Sala: cuentas, chat, mail e idiomas a pedido
 
-Cuentas con **Google** (nombre y foto, lista de conectados, expositores por lista de mails), **chat de la sala** y **envío por mail** de la transcripción de un período. Todo opcional y configurado por variables de entorno; ver `docs/MANUAL.md` §8.
+- **Un solo lugar para todo**: la sala `/s/<id>` tiene el panel ⚙ con idioma, vista, exportación por rango horario (TXT/SRT/VTT/JSON), identidad y, para expositores, la transmisión del micrófono.
+- **Idioma a pedido**: cualquier espectador elige entre 30 idiomas; si la sesión no lo traducía, el servidor lo agrega en caliente y rellena las últimas frases.
+- **Cuentas con Google** (nombre y foto, lista de conectados oyentes/expositores, expositores por lista de mails o dominio), entrada como invitado, cierre de sesión.
+- **Chat de la sala** con control de flood, guardado junto con la transcripción.
+- **Envío por mail** de la transcripción de un período (SMTP o Resend).
+
+Todo opcional y configurado por variables de entorno; ver `docs/MANUAL.md` §8.
+
+## Pruebas, CI y números
+
+```bash
+npm test                                   # unit + end-to-end (servidor real en modo simulado)
+node tools/bench.js --sessions 10 --viewers 50 --seconds 45   # carga: 10 escenarios × 500 espectadores
+```
+
+Medido (2 vCPU): 10 sesiones × 50 espectadores → **2.100 mensajes/s**, fan-out p95 **2 ms**, **4 % CPU**, **119 MB RAM**. Con Gemini real: traducción disponible **≤ 2,7 s (p95)** después de la frase final. Detalle y cómo reproducirlo en [docs/EVIDENCIA.md](docs/EVIDENCIA.md). Las pruebas corren en GitHub Actions en cada push.
 
 ## Roadmap
 
