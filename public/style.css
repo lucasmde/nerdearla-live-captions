@@ -133,7 +133,11 @@ body.tv .captions { --fs: 52px; padding: 30px 320px 40px 40px; min-height: 100vh
 #q { font-variant-numeric: tabular-nums; }
 .chat-form { flex-wrap: nowrap; } .chat-form .btn { padding: 8px 10px; flex: none; } .chat-form input { min-width: 0; }
 .emojis { gap: 3px; } .emojis button { font-size: 18px; padding: 3px 5px; }
-.btn.gh { display: inline-block; margin-top: 8px; text-decoration: none; background: #24292f; color: #fff; border-color: #24292f; }
+/* "Entrar con GitHub": same shape/size as Google's sign-in button (40px, white, Roboto 14px), GitHub mark (Primer octicon, MIT) tinted violet */
+.btn.gh { display: inline-flex; align-items: center; gap: 10px; height: 40px; box-sizing: border-box; margin-top: 8px; padding: 0 12px; border-radius: 4px; text-decoration: none; background: #fff; color: #1f1f1f; border: 1px solid #747775; font-family: Roboto, Arial, sans-serif; font-size: 14px; font-weight: 500; text-transform: none; letter-spacing: .25px; }
+.btn.gh:hover { background: #f2f2f2; }
+.btn.gh .ghmark { width: 20px; height: 20px; flex: none; background: #8957e5; -webkit-mask: url(/img/github-mark.svg) center / contain no-repeat; mask: url(/img/github-mark.svg) center / contain no-repeat; }
+#panel .row .btn.gh { height: 32px; font-size: 13px; margin: 0; } #panel .row .btn.gh .ghmark { width: 16px; height: 16px; }
 /* fixes: people popover above the chat, chat form never cuts the send button */
 .popover, #people { z-index: 40; }
 .chat { width: min(340px, 100vw); box-sizing: border-box; }
@@ -175,3 +179,26 @@ body.with-chat .popover { right: 356px; }
 :root[data-theme="light"] .modal { background: rgba(20,20,30,.55); }
 :root[data-theme="light"] .logo { border-color: #e2e2ea; }
 :root[data-theme="light"] .toast { box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+
+/* room switcher: click the room name in the header -> every room with its talk, countdown and audience */
+h1.roomsel { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; padding: 0 6px; margin-left: -6px; }
+h1.roomsel:hover, h1.roomsel:focus-visible { background: var(--panel2); outline: none; }
+h1.roomsel .caret { font-size: 14px; color: var(--muted); }
+header.top .sub .cd { color: var(--teal); text-transform: none; letter-spacing: 0; font-weight: 700; white-space: nowrap; }
+.popover.rooms { left: 16px; right: auto; min-width: 340px; max-width: min(560px, calc(100vw - 32px)); padding: 10px; }
+.rooms .sep { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; font-size: 12px; color: var(--muted); margin: 10px 4px 4px; }
+.rooms .room { display: grid; grid-template-columns: 12px 1fr auto; grid-template-areas: "d n v" "d t c"; column-gap: 10px; row-gap: 2px; align-items: center; padding: 8px 8px; border-radius: 10px; color: var(--text); text-decoration: none; border: 1px solid transparent; }
+.rooms .room:hover { background: var(--panel2); border-color: var(--line); }
+.rooms .room.cur { background: var(--panel2); border-color: var(--c, var(--teal)); }
+.rooms .cdot { grid-area: d; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--teal)); }
+.rooms .rn { grid-area: n; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .03em; font-size: 15px; }
+.rooms .rt { grid-area: t; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rooms .rt b { color: var(--text); font-weight: 600; }
+.rooms .rc { grid-area: c; font-size: 12px; color: var(--teal); font-weight: 700; white-space: nowrap; }
+.rooms .rv { grid-area: v; font-size: 12px; white-space: nowrap; }
+.rooms .tag { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; background: var(--line); color: var(--muted); vertical-align: middle; }
+.rooms .tag.live { background: var(--red); color: #fff; }
+@media (max-width: 700px) { .popover.rooms { left: 8px; right: 8px; min-width: 0; } .rooms .room { grid-template-columns: 12px 1fr; grid-template-areas: "d n" "d t" "d c" "d v"; } }
+
+/* account popover (click your name in the header) */
+.badge.clickable { cursor: pointer; } .badge.clickable:hover { border-color: var(--muted); color: var(--text); }
+.popover.mepop { min-width: 280px; } .mepop .who { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; } .mepop .who img { width: 40px; height: 40px; border-radius: 50%; } .mepop .who b { display: block; margin: 0; font-family: var(--font-display); text-transform: uppercase; font-size: 15px; } .mepop .toolbar { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR de la sala · Live Captions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* Access card of a room: projectable (dark, 16:9) and printable (white, A4). Room color drives the accents. */
+  html, body { min-height: 100%; }
+  body { background: var(--bg); color: var(--text); margin: 0; }
+  .card-wrap { max-width: 1180px; margin: 0 auto; padding: 22px 24px 40px; }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .head .event { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: 15px; color: var(--muted); text-align: right; }
+  .head .event b { display: block; color: var(--text); font-size: 20px; letter-spacing: .04em; }
+  .roomtitle { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 0 0 4px; }
+  .roomtitle h1 { font-family: var(--font-display); text-transform: uppercase; font-size: clamp(40px, 7vw, 84px); line-height: .95; margin: 0; letter-spacing: .01em; }
+  .roomtitle .dot { width: 22px; height: 22px; border-radius: 50%; background: var(--room, var(--red)); display: inline-block; }
+  .place { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: clamp(16px, 2.4vw, 24px); color: var(--muted); margin-bottom: 22px; }
+  .grid { display: grid; grid-template-columns: minmax(300px, 420px) 1fr; gap: 28px; align-items: start; }
+  .qrbox { background: #fff; color: #111; border-radius: 18px; padding: 18px 18px 16px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.45); border-top: 10px solid var(--room, var(--red)); }
+  .qrbox img { width: 100%; max-width: 380px; aspect-ratio: 1; display: block; margin: 0 auto; }
+  .qrbox .scan { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; font-size: 20px; margin: 10px 0 2px; }
+  .qrbox .url { font-family: ui-monospace, Consolas, monospace; font-size: 15px; color: #444; word-break: break-all; }
+  .qrbox .langs { font-size: 13px; color: #555; margin-top: 8px; }
+  .now { border: 1px solid var(--line); border-left: 8px solid var(--room, var(--red)); border-radius: 12px; padding: 14px 18px; background: var(--panel); margin-bottom: 18px; }
+  .now .k { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: 14px; color: var(--yellow); font-weight: 700; }
+  .now .k .cd { color: var(--teal); text-transform: none; letter-spacing: 0; margin-left: 6px; }
+  .now .t { font-family: var(--font-display); text-transform: uppercase; font-size: clamp(22px, 3vw, 34px); line-height: 1.05; margin: 4px 0 2px; }
+  .now .s { color: var(--muted); font-size: 16px; }
+  .agenda h2 { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .08em; font-size: 15px; color: var(--muted); margin: 0 0 8px; }
+  .agenda table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  .agenda td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .agenda td.w { white-space: nowrap; font-family: var(--font-display); font-weight: 700; letter-spacing: .04em; width: 1%; color: var(--muted); }
+  .agenda tr.cur td { background: var(--panel2); } .agenda tr.cur td.w { color: var(--yellow); }
+  .agenda tr.done td { opacity: .45; }
+  .agenda .ttl { font-family: var(--font-display); text-transform: uppercase; font-size: 17px; line-height: 1.1; }
+  .agenda .spk { color: var(--muted); font-size: 14px; }
+  .agenda .tag { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 11px; background: var(--red); color: #fff; margin-left: 8px; vertical-align: middle; font-family: var(--font-display); text-transform: uppercase; }
+  .feats { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; color: var(--muted); font-size: 14px; }
+  .feats span::before { content: '✓ '; color: var(--teal); font-weight: 700; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 22px; }
+  .actions .btn, .actions a.btn { text-decoration: none; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); color: var(--text); cursor: pointer; font-family: var(--font-display); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; font-size: 14px; }
+  .actions .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+  .brandbar { position: sticky; top: 0; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .qrbox { max-width: 420px; margin: 0 auto; } }
+  @media print {
+    :root { --bg: #fff; --panel: #fff; --panel2: #f2f2f2; --line: #ddd; --text: #111; --muted: #555; }
+    body { background: #fff; color: #111; } .brandbar { position: static; }
+    .actions, .feats { display: none; } .qrbox { box-shadow: none; border: 1px solid #ccc; }
+    .card-wrap { padding: 10mm 8mm; max-width: none; } .grid { grid-template-columns: 90mm 1fr; gap: 10mm; }
+    .agenda table { font-size: 12px; } .agenda .ttl { font-size: 13px; } .now .t { font-size: 20px; }
+    @page { size: A4 portrait; margin: 8mm; }
+  }
+</style>
+</head>
+<body>
+<div class="brandbar"></div>
+<div class="card-wrap">
+  <div class="head">
+    <a class="logo big" href="/" title="Todas las salas"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></a>
+    <div class="event"><b id="event">…</b><span id="date"></span></div>
+  </div>
+  <div class="roomtitle"><span class="dot"></span><h1 id="room">…</h1></div>
+  <div class="place" id="place"></div>
+
+  <div class="grid">
+    <div class="qrbox">
+      <img id="qr" alt="Código QR de la sala">
+      <div class="scan">Escaneá para ver los subtítulos</div>
+      <div class="url" id="url"></div>
+      <div class="langs" id="langs"></div>
+    </div>
+    <div>
+      <div class="now" id="now" style="display:none"><div class="k" id="nowK"></div><div class="t" id="nowT"></div><div class="s" id="nowS"></div></div>
+      <div class="agenda"><h2 id="agH">Agenda de hoy</h2><table><tbody id="ag"></tbody></table></div>
+      <div class="feats"><span>Subtítulos en tu idioma (30+, a pedido)</span><span>Texto original y traducción</span><span>Chat de la sala y levantar la mano</span><span>¿Qué me perdí? (resumen)</span><span>Transcripción por mail o descarga</span></div>
+      <div class="actions"><button class="btn primary" onclick="print()">🖨 Imprimir</button><a class="btn" id="tv">📺 Modo pantalla</a><a class="btn" id="open">Abrir la sala</a><span class="muted" style="align-self:center;font-size:13px">Se actualiza sola con la agenda</span></div>
+    </div>
+  </div>
+</div>
+<script>
+const id = location.pathname.split('/').filter(Boolean)[1];
+const q = new URLSearchParams(location.search); const lang = q.get('lang') || 'es';
+const $ = (s) => document.querySelector(s);
+const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ALL = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文', ko: '한국어' };
+let tz = 'America/Argentina/Buenos_Aires', data = null;
+const tzNow = () => { const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date()).filter(x => x.type !== 'literal').map(x => [x.type, Number(x.value)])); return (p.hour % 24) * 3600 + p.minute * 60 + p.second; };
+const hmSec = (hm) => { const [h, m] = String(hm || '0:0').split(':').map(Number); return h * 3600 + m * 60; };
+const fmtIn = (s) => { if (s <= 0) return 'ya'; if (s < 60) return `${s} s`; const m = Math.ceil(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`; };
+
+async function load() {
+  try { data = await (await fetch(`/api/sessions/${encodeURIComponent(id)}/agenda`)).json(); } catch { return; }
+  if (!data?.session) return;
+  const s = data.session; tz = data.timezone || tz;
+  if (s.color) document.documentElement.style.setProperty('--room', s.color);
+  $('#event').textContent = data.event || 'Live Captions';
+  $('#date').textContent = new Intl.DateTimeFormat('es-AR', { timeZone: tz, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  $('#room').textContent = s.name; $('#place').textContent = s.room || '';
+  document.title = `${s.name} · QR de la sala`;
+  const url = `${data.url}?lang=${encodeURIComponent(lang)}`;
+  $('#qr').src = `/api/sessions/${encodeURIComponent(id)}/qr.svg?lang=${encodeURIComponent(lang)}`;
+  $('#url').textContent = url.replace(/^https?:\/\//, '');
+  $('#langs').textContent = '🌐 ' + s.targetLangs.map((l) => ALL[l] || l.toUpperCase()).join(' · ') + ' · y 30+ idiomas más a pedido';
+  $('#tv').href = `/s/${encodeURIComponent(id)}?lang=${encodeURIComponent(lang)}&tv=1`; $('#open').href = url;
+  render();
+}
+function render() {
+  if (!data) return;
+  const ag = data.session.agenda, now = tzNow();
+  const box = $('#now');
+  if (ag && (ag.now || ag.next)) {
+    const t = ag.now || ag.next; const d = ag.now ? hmSec(t.end) - now : hmSec(t.start) - now;
+    box.style.display = '';
+    $('#nowK').innerHTML = `${ag.now ? 'Ahora' : 'Sigue'} · ${t.start}–${t.end}<span class="cd">${ag.now ? `termina en ${fmtIn(d)}` : `empieza en ${fmtIn(d)}`}</span>`;
+    $('#nowT').textContent = t.title; $('#nowS').textContent = [t.speaker, t.lang ? t.lang.toUpperCase() : ''].filter(Boolean).join(' · ');
+  } else box.style.display = 'none';
+  const day = ag?.day; const list = (data.agenda || []).filter((t) => !t.day || !day || t.day === day).sort((a, b) => a.start.localeCompare(b.start));
+  $('#agH').textContent = list.length ? `Agenda de hoy · ${list.length} charla${list.length === 1 ? '' : 's'}` : 'Sin agenda cargada';
+  $('#ag').innerHTML = list.map((t) => { const st = hmSec(t.start), en = hmSec(t.end); const cur = st <= now && now < en, done = en <= now;
+    return `<tr class="${cur ? 'cur' : done ? 'done' : ''}"><td class="w">${t.start}–${t.end}</td><td><div class="ttl">${esc(t.title)}${cur ? '<span class="tag">en vivo</span>' : ''}</div><div class="spk">${esc(t.speaker)}${t.lang ? ` · ${t.lang.toUpperCase()}` : ''}</div></td></tr>`; }).join('');
+}
+load(); setInterval(load, 30000); setInterval(render, 1000);
+</script>
+</body>
+</html>

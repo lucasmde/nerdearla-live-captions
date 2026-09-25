@@ -33,7 +33,7 @@ async function load() {
       <div class="room">${esc(s.room || '')} · ${s.viewers} viendo</div>
       ${talk(ag.now, 'AHORA') || (ag.next ? '' : (s.talks ? '<div class="talk"><div class="when">SIN CHARLAS AHORA</div></div>' : ''))}${talk(ag.next, 'SIGUE')}
       <div class="langs">${s.targetLangs.map(l => `<a class="pill" href="/s/${s.id}?lang=${l}">${esc(d.langLabels[l] || l)}</a>`).join('')}</div>
-      <div class="langs" style="margin-top:8px"><a class="pill" href="/s/${s.id}?lang=es&tv=1" title="Pantalla de sala con QR">📺 pantalla</a><a class="pill" href="/api/sessions/${s.id}/qr.svg" title="QR para imprimir">▦ QR</a></div>`;
+      <div class="langs" style="margin-top:8px"><a class="pill" href="/s/${s.id}?lang=es&tv=1" title="Pantalla de sala con QR">📺 pantalla</a><a class="pill" href="/s/${s.id}/qr?lang=es" target="_blank" rel="noopener" title="Tarjeta de la sala: QR grande, charla actual y agenda del día, para proyectar o imprimir">▦ QR</a></div>`;
     grid.appendChild(el);
   }
 }

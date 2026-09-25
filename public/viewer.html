@@ -11,11 +11,12 @@
 <body>
 <div class="brandbar"></div>
 <header class="top">
-  <div class="brand"><a class="logo" href="/" title="Todas las salas"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></a><div><h1 id="title">…</h1><div class="sub" id="sub"></div></div></div>
+  <div class="brand"><a class="logo" href="/" title="Todas las salas"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></a><div><h1 id="title" class="roomsel" title="Cambiar de sala" tabindex="0" role="button" aria-haspopup="true">…<span class="caret">▾</span></h1><div class="sub" id="sub"></div></div></div>
   <div class="toolbar">
     <select id="langSel" class="btn" title="Idioma de los subtítulos"></select>
     <span class="badge" id="who" title="Ver quién está conectado" style="cursor:pointer"><span>👥</span><span>…</span></span>
-    <span class="badge" id="meBadge" style="display:none"><img id="meImg" alt="" style="width:18px;height:18px;border-radius:50%;display:none"><span id="meName"></span></span>
+    <span class="badge clickable" id="guestBadge" style="display:none" title="Entraste sin cuenta: solo lectura. Click para iniciar sesión">👤 <span>invitado · solo lectura</span></span>
+    <span class="badge clickable" id="meBadge" style="display:none" title="Tu cuenta · cerrar sesión" role="button" tabindex="0"><img id="meImg" alt="" style="width:18px;height:18px;border-radius:50%;display:none"><span id="meName"></span></span>
     <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
     <span class="badge" id="q" title="Calidad en vivo: latencia de conexión · nivel de voz · retraso de subtítulos"><span>📶</span><span>…</span></span>
     <button class="btn" id="theme" title="Modo día / noche">☀️</button>
@@ -33,7 +34,7 @@
     </div>
     <div class="row"><b>Sala</b>
       <button class="btn" id="missed" title="Resumen con IA de lo que se dijo hasta ahora, en tu idioma">🕒 ¿Qué me perdí?</button>
-      <button class="btn" id="qrBtn" title="Código QR de esta sala para proyectar o imprimir">▦ QR de la sala</button>
+      <button class="btn" id="qrBtn" title="Tarjeta de acceso de la sala: QR grande, charla actual y agenda del día, para proyectar o imprimir">▦ QR de la sala</button>
       <a class="btn" id="tvLink" href="#" title="Pantalla de sala: subtítulos grandes + QR">📺 Modo pantalla</a>
     </div>
     <div id="missedBox" class="missed" style="display:none"></div>
@@ -81,11 +82,14 @@
   </div>
 </div></div>
 <div id="people" class="popover" style="display:none"></div>
+<div id="rooms" class="popover rooms" style="display:none" aria-label="Salas"></div>
+<div id="mePop" class="popover mepop" style="display:none"></div>
 <aside id="chat" class="chat" style="display:none">
   <div class="chat-head"><b>Chat de la sala</b><button class="btn" id="chatClose">✕</button></div>
   <div class="floor" id="floorBar" style="display:none"></div>
   <div class="chat-list" id="chatList"></div>
   <div class="emojis" id="emojis"></div>
+  <div class="floor" id="guestNote" style="display:none">👤 Entraste como invitado: sólo lectura. <a href="#" id="guestLogin" style="color:var(--teal)">Iniciar sesión</a> para chatear o levantar la mano.</div>
   <form class="chat-form" id="chatForm">
     <button class="btn" type="button" id="emojiBtn" title="Emojis">😀</button>
     <button class="btn" type="button" id="handBtn" title="Levantar la mano para pedir la palabra">✋</button>
@@ -108,15 +112,18 @@ const caps = $('#captions');
 let partialEl = null, meta = null, segs = new Map();
 let me = { name: '', role: '' };
 try { me = JSON.parse(localStorage.getItem('me') || '{}'); } catch {}
-let account = null; // signed-in Google account, if any
+let account = null; // signed-in Google/GitHub account, if any
+let cfg = { guestAccess: 'full' };
+const limited = () => !account && cfg.guestAccess === 'limited'; // guest in a room where accounts unlock chat/hand/speaker/mail
 let lastPresence = null;
 async function initIdentity() {
-  const [cfg, who] = await Promise.all([fetch('/api/config').then(r => r.json()), fetch('/api/me').then(r => r.json())]);
-  account = who;
+  const [c, who] = await Promise.all([fetch('/api/config').then(r => r.json()), fetch('/api/me').then(r => r.json())]);
+  cfg = c; account = who;
+  applyGuestMode();
   if (account) { me.name = account.name; localStorage.setItem('me', JSON.stringify(me)); showMe(); }
   if (cfg.googleClientId && !account && me.role && !sessionStorage.getItem('gAsked')) { sessionStorage.setItem('gAsked', '1'); $('#welcome').style.display = 'flex'; $('#guestHint').textContent = 'Podés iniciar sesión con Google o seguir como ' + (me.name || 'invitado') + '.'; if (me.name) $('#wName').value = me.name; }
   if (cfg.github && !account) {
-    for (const sel of ['#gBox', '#panel .row:has(#gBtn2)']) { const box = $(sel); if (!box) continue; const a = document.createElement('a'); a.className = 'btn gh'; a.href = '/api/auth/github?back=' + encodeURIComponent(location.pathname + location.search); a.textContent = '🐙 Entrar con GitHub'; box.style.display = ''; box.appendChild(a); }
+    for (const sel of ['#gBox', '#panel .row:has(#gBtn2)']) { const box = $(sel); if (!box) continue; const a = document.createElement('a'); a.className = 'btn gh'; a.href = '/api/auth/github?back=' + encodeURIComponent(location.pathname + location.search); a.innerHTML = '<span class="ghmark" aria-hidden="true"></span><span>Entrar con GitHub</span>'; box.style.display = ''; box.appendChild(a); }
   }
   if (cfg.googleClientId && !account) {
     $('#gBox').style.display = '';
@@ -138,10 +145,30 @@ async function initIdentity() {
   }
   if (account && !me.role) { $('#guestHint').textContent = 'Hola ' + account.name + '. ¿Entrás a escuchar o a exponer?'; $('#wName').style.display = 'none'; }
 }
+// account badge in the header -> who you are + sign out
+$('#meBadge').onclick = () => { const p = $('#mePop'); if (p.style.display !== 'none') { p.style.display = 'none'; return; } $('#people').style.display = 'none'; $('#rooms').style.display = 'none';
+  p.innerHTML = `<div class="who">${account?.picture ? `<img src="${account.picture}" alt="">` : ''}<div><b>${esc(account?.name || me.name || '')}</b>${account?.email ? `<div class="muted">${esc(account.email)}</div>` : ''}<div class="muted">${me.role === 'speaker' ? '🎤 expositor' : '🎧 oyente'}</div></div></div><div class="toolbar"><button class="btn primary" id="meLogout">Cerrar sesión</button><button class="btn" id="meSettings">⚙ Cambiar nombre / rol</button></div>`;
+  p.style.display = ''; $('#meLogout').onclick = () => $('#logout').onclick(); $('#meSettings').onclick = () => { p.style.display = 'none'; if ($('#panel').style.display === 'none') $('#gear').onclick(); $('#myName').focus(); }; };
+$('#meBadge').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#meBadge').onclick(); } };
+document.addEventListener('click', (e) => { if (!e.target.closest('#mePop') && !e.target.closest('#meBadge')) $('#mePop').style.display = 'none'; });
 $('#logout').onclick = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {} localStorage.removeItem('me'); sessionStorage.removeItem('gAsked'); location.reload(); };
 $('#logout').style.display = '';
+// Guests in 'limited' rooms: subtitles only. Everything that talks back needs an account.
+function applyGuestMode() {
+  const lim = limited();
+  $('#guestBadge').style.display = lim && me.role ? '' : 'none';
+  $('#wSpeaker').style.display = lim ? 'none' : '';
+  $('#wListener').querySelector('small').textContent = lim ? 'Sin cuenta: sólo leer los subtítulos' : 'Leer subtítulos, chatear, levantar la mano';
+  if (lim) $('#guestHint').textContent = 'Con Google o GitHub podés chatear, levantar la mano o exponer. Sin cuenta, sólo leés los subtítulos.';
+  for (const sel of ['#chatInput', '#handBtn', '#micMsg', '#emojiBtn', '#mailGo']) { const el = $(sel); if (!el) continue; el.disabled = lim; if (lim) el.title = 'Iniciá sesión para usar esto'; }
+  $('#chatInput').placeholder = lim ? 'Iniciá sesión con Google o GitHub para chatear' : 'Escribí un mensaje…';
+  $('#guestNote').style.display = lim ? '' : 'none';
+  const spk = $('#myRole').querySelector('option[value="speaker"]'); if (spk) spk.disabled = lim;
+  if (lim && me.role === 'speaker') { me.role = 'listener'; localStorage.setItem('me', JSON.stringify(me)); $('#myRole').value = 'listener'; $('#txRow').style.display = 'none'; }
+}
 function showMe() {
   if (!account) return;
+  applyGuestMode();
   $('#gBox').style.display = 'none'; $('#gBtn2').style.display = 'none'; $('#logout').style.display = '';
   $('#meBadge').style.display = '';
   $('#meName').textContent = account.name;
@@ -173,7 +200,8 @@ $('#handBtn').onclick = () => { if (me.role === 'speaker') return; handUp = !han
 function renderFloor() {
   const bar = $('#floorBar'); const isSpk = me.role === 'speaker';
   const holder = floor.holder, hands = floor.hands || [];
-  if (!holder && !hands.length) { bar.style.display = 'none'; $('#chatInput').disabled = false; $('#chatInput').placeholder = 'Escribí un mensaje…'; return; }
+  if (limited()) { $('#chatInput').disabled = true; $('#chatInput').placeholder = 'Iniciá sesión con Google o GitHub para chatear'; }
+  if (!holder && !hands.length) { bar.style.display = 'none'; if (!limited()) { $('#chatInput').disabled = false; $('#chatInput').placeholder = 'Escribí un mensaje…'; } return; }
   bar.style.display = '';
   let html = '';
   if (holder) html += `<div class="fl"><b>✋ ${esc(holder.name)} tiene la palabra</b>${isSpk ? ` <button class="btn" data-floor="">Cerrar palabra</button>` : ''}</div>`;
@@ -181,7 +209,7 @@ function renderFloor() {
   bar.innerHTML = html;
   bar.querySelectorAll('[data-floor]').forEach(b => b.onclick = () => sock?.send(JSON.stringify({ type: 'floor', to: b.dataset.floor || null })));
   const blocked = holder && holder.id !== myCid && !isSpk;
-  $('#chatInput').disabled = !!blocked; $('#chatInput').placeholder = blocked ? `Esperá: ${holder.name} tiene la palabra` : 'Escribí un mensaje…';
+  if (!limited()) { $('#chatInput').disabled = !!blocked; $('#chatInput').placeholder = blocked ? `Esperá: ${holder.name} tiene la palabra` : 'Escribí un mensaje…'; }
   if (holder && holder.id === myCid) { handUp = false; $('#handBtn').classList.remove('on'); }
 }
 // ---- audio message (hold to record, max 20 s)
@@ -223,21 +251,72 @@ function renderPeople() {
   const item = (x) => `<div class="person">${x.picture ? `<img src="${x.picture}" alt="">` : `<span class="ini">${(x.name || '?').slice(0, 1).toUpperCase()}</span>`}<span>${x.name || 'Anónimo'}</span><span class="muted">${x.role === 'speaker' ? '🎤 expositor' : '🎧 oyente'}</span></div>`;
   box.innerHTML = `<b>${p.total} en la sala</b>` + (p.people || []).map(item).join('') + (p.total > (p.people || []).length ? `<div class="muted">y ${p.total - p.people.length} más…</div>` : '');
 }
-function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); }
+function saveMe(name, role) { if (limited() && role === 'speaker') role = 'listener'; me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); $('#guestBadge').style.display = limited() && me.role ? '' : 'none'; }
 if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
-const needName = () => { const n = $('#wName').value.trim(); if (!n) { $('#wName').focus(); $('#wName').placeholder = 'Poné tu nombre para entrar'; $('#wName').classList.add('err'); return false; } return true; };
-$('#wListener').onclick = () => { if (!needName()) return; saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
-$('#wSpeaker').onclick = () => { if (!needName()) return; saveMe($('#wName').value, 'speaker'); $('#welcome').style.display = 'none'; connect(); };
+// Signed-in people (Google/GitHub) already have a name: never block them on the hidden name field.
+const validName = (n) => { n = String(n || '').replace(/\s+/g, ' ').trim(); return n.length >= 2 && n.length <= 40 && !/https?:|www\.|@/i.test(n) && /\p{L}/u.test(n) ? n : ''; };
+const enterName = () => account?.name || validName($('#wName').value);
+const needName = () => { if (enterName()) return true; $('#wName').style.display = ''; $('#wName').focus(); $('#wName').placeholder = $('#wName').value.trim() ? 'Nombre real: 2 a 40 letras, sin links' : 'Poné tu nombre para entrar'; $('#wName').classList.add('err'); return false; };
+$('#wListener').onclick = () => { if (!needName()) return; saveMe(enterName(), 'listener'); $('#welcome').style.display = 'none'; connect(); };
+$('#wSpeaker').onclick = () => { if (!needName()) return; saveMe(enterName(), (account && !account.canSpeak) || limited() ? 'listener' : 'speaker'); $('#welcome').style.display = 'none'; connect(); };
+$('#guestLogin').onclick = (e) => { e.preventDefault(); $('#guestBadge').onclick(); };
+$('#guestBadge').onclick = () => { $('#welcome').style.display = 'flex'; $('#guestHint').textContent = 'Iniciá sesión para chatear, levantar la mano o exponer. Como invitado sólo leés los subtítulos.'; };
 $('#saveMe').onclick = () => { saveMe($('#myName').value, $('#myRole').value); if (sock) sock.close(); };
 $('#gear').onclick = () => { const p = $('#panel'); p.style.display = p.style.display === 'none' ? '' : 'none'; $('#gear').classList.toggle('on', p.style.display !== 'none'); };
 let sock = null;
 function presence(p) { if (!p) return; lastPresence = p; if ($('#people').style.display !== 'none') renderPeople(); $('#who').lastElementChild.textContent = `${p.total} conectado${p.total === 1 ? '' : 's'} · ${p.listeners} oyente${p.listeners === 1 ? '' : 's'} · ${p.speakers} expositor${p.speakers === 1 ? '' : 'es'}${p.speakerNames?.length ? ' (' + p.speakerNames.join(', ') + ')' : ''}`; }
 
-fetch('/api/sessions').then(r => r.json()).then(d => {
-  meta = d.sessions.find(s => s.id === id); if (!meta) return;
-  $('#title').textContent = meta.name; $('#sub').textContent = meta.room || '';
+// ---- rooms: header line with countdown + switcher listing every room (refreshed from /api/sessions)
+let allSessions = [], eventTz = 'America/Argentina/Buenos_Aires';
+const tzNow = () => { // seconds since midnight in the event's time zone
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: eventTz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date()).filter(x => x.type !== 'literal').map(x => [x.type, Number(x.value)]));
+  return (p.hour % 24) * 3600 + p.minute * 60 + p.second;
+};
+const hmSec = (hm) => { const [h, m] = String(hm || '0:0').split(':').map(Number); return h * 3600 + m * 60; };
+const fmtIn = (s) => { if (s <= 0) return 'ya'; if (s < 60) return `${s} s`; const m = Math.ceil(s / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`; };
+// "termina en 12 min" for the current talk, "empieza en 8 min" for the next one, '' when there is no agenda
+function countdown(ag) {
+  if (!ag) return '';
+  const now = tzNow();
+  if (ag.now) { const d = hmSec(ag.now.end) - now; return d > 0 ? `termina en ${fmtIn(d)}` : 'terminando'; }
+  if (ag.next) { const d = hmSec(ag.next.start) - now; return d > 0 ? `empieza en ${fmtIn(d)}` : 'por empezar'; }
+  return '';
+}
+function renderHeader() {
+  if (!meta) return;
+  const ag = meta.agenda, cd = countdown(ag);
+  if (ag && (ag.now || ag.next)) { const t = ag.now || ag.next; $('#sub').innerHTML = `${esc(meta.room || '')} · <span class="talkline">${ag.now ? 'Ahora' : 'Sigue ' + t.start}${cd ? ` <span class="cd">(${cd})</span>` : ''} · ${esc(t.title)} — ${esc(t.speaker)}</span>`; }
+  else $('#sub').textContent = meta.room || '';
+}
+function renderRooms() {
+  const box = $('#rooms'); if (box.style.display === 'none') return;
+  const live = allSessions.filter(s => s.agenda?.now), rest = allSessions.filter(s => !s.agenda?.now);
+  const row = (s) => { const ag = s.agenda || {}, t = ag.now || ag.next, cd = countdown(ag);
+    return `<a class="room ${s.id === id ? 'cur' : ''}" href="/s/${encodeURIComponent(s.id)}?lang=${encodeURIComponent(lang)}${showOrig ? '&orig=1' : ''}" style="--c:${s.color || 'var(--teal)'}">
+      <span class="cdot"></span><span class="rn"><b>${esc(s.name)}</b>${s.id === id ? '<span class="tag">estás acá</span>' : ''}${ag.now ? '<span class="tag live">en vivo</span>' : ''}</span>
+      <span class="rt">${s.room ? `${esc(s.room)} · ` : ''}${t ? `<b>${ag.now ? 'Ahora' : 'Sigue'} ${t.start}–${t.end}</b> · ${esc(t.title)}${t.speaker ? ` — ${esc(t.speaker)}` : ''}` : 'sin agenda'}</span>
+      ${cd ? `<span class="rc">${cd}</span>` : ''}<span class="muted rv">${s.viewers ?? 0} 👥</span></a>`; };
+  box.innerHTML = `<b>${live.length > 1 ? `${live.length} charlas en simultáneo` : 'Salas'}</b>${live.map(row).join('')}${live.length && rest.length ? '<div class="sep">Próximas</div>' : ''}${rest.map(row).join('')}`;
+}
+$('#title').onclick = () => { const p = $('#rooms'); $('#people').style.display = 'none'; p.style.display = p.style.display === 'none' ? '' : 'none'; renderRooms(); };
+$('#title').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#title').onclick(); } };
+document.addEventListener('click', (e) => { if (!e.target.closest('#rooms') && !e.target.closest('#title')) $('#rooms').style.display = 'none'; });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') $('#rooms').style.display = 'none'; });
+setInterval(() => { renderHeader(); renderRooms(); }, 1000);
+async function loadSessions() {
+  try {
+    const d = await (await fetch('/api/sessions')).json();
+    allSessions = d.sessions || []; if (d.timezone) eventTz = d.timezone;
+    const m = allSessions.find(s => s.id === id); if (!m) return;
+    const first = !meta; meta = m;
+    renderHeader(); renderRooms();
+    if (first) initLangs(d);
+  } catch {}
+}
+loadSessions(); setInterval(loadSessions, 20000);
+function initLangs(d) {
+  $('#title').firstChild.textContent = meta.name;
   if (meta.color) document.documentElement.style.setProperty('--room', meta.color);
-  const ag = meta.agenda; if (ag && (ag.now || ag.next)) { const t = ag.now || ag.next; $('#sub').innerHTML = `${esc(meta.room || '')} · <span class="talkline">${ag.now ? 'Ahora' : 'Sigue ' + t.start} · ${esc(t.title)} — ${esc(t.speaker)}</span>`; }
   document.title = `${meta.name} · subtítulos`;
   const ALL = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', ja: '日本語', zh: '中文', ko: '한국어', ru: 'Русский', ar: 'العربية', hi: 'हिन्दी', nl: 'Nederlands', pl: 'Polski', tr: 'Türkçe', sv: 'Svenska', ca: 'Català', eu: 'Euskara', gl: 'Galego', he: 'עברית', id: 'Bahasa Indonesia', uk: 'Українська', vi: 'Tiếng Việt', th: 'ไทย', el: 'Ελληνικά', ro: 'Română', cs: 'Čeština', da: 'Dansk', fi: 'Suomi', no: 'Norsk', hu: 'Magyar' };
   const L = $('#langSel'); L.innerHTML = '';
@@ -246,7 +325,7 @@ fetch('/api/sessions').then(r => r.json()).then(d => {
   for (const [l, n] of Object.entries(ALL)) if (!meta.targetLangs.includes(l)) { const o = document.createElement('option'); o.value = l; o.textContent = '🌐 ' + n; o.selected = l === lang; g2.appendChild(o); }
   L.appendChild(g1); L.appendChild(g2);
   L.onchange = () => { lang = L.value; history.replaceState(null, '', `?lang=${lang}${showOrig ? '&orig=1' : ''}`); if (sock?.readyState === 1) sock.send(JSON.stringify({ type: 'setLang', lang })); rerender(); };
-});
+}
 
 function connect() {
   const qs = new URLSearchParams({ name: me.name || '', role: me.role || 'listener', lang });
@@ -319,10 +398,7 @@ $('#missed').onclick = async () => {
   try { const r = await fetch(`/api/sessions/${id}/summary?lang=${encodeURIComponent(lang)}`); const j = await r.json(); box.textContent = j.text || j.error || 'Sin resumen.'; }
   catch { box.textContent = 'No se pudo generar el resumen.'; }
 };
-$('#qrBtn').onclick = () => {
-  const box = $('#missedBox'); box.style.display = '';
-  box.innerHTML = `<img class="qr" src="/api/sessions/${id}/qr.svg?lang=${encodeURIComponent(lang)}" alt="QR de la sala"><div class="muted">${location.origin}/s/${id}?lang=${lang}</div>`;
-};
+$('#qrBtn').onclick = () => window.open(`/s/${id}/qr?lang=${encodeURIComponent(lang)}`, '_blank');
 $('#tvLink').href = `/s/${id}?lang=${lang}&tv=1`;
 if (new URLSearchParams(location.search).get('tv')) { document.body.classList.add('tv'); const q = $('#tvQr'); q.src = `/api/sessions/${id}/qr.svg?lang=${encodeURIComponent(lang)}`; q.style.display = ''; }
 $('#expGo').onclick = () => {
