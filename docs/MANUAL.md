@@ -119,6 +119,8 @@ Alternativas a la consola web:
 - `https://captions.miconferencia.org/s/main?lang=es` es la vista de subtítulos. Ese es el link para el **QR de la sala**.
 - Botones: idioma, **ORIG** (muestra también la frase original debajo de la traducción), **A−/A+** tamaño de letra.
 - Quien entra tarde ve las últimas frases de la charla, y con ⚙ → **¿Qué me perdí?** obtiene un resumen con IA de lo dicho hasta ahora, en su idioma.
+- **Cambiar de sala sin volver a la portada**: click en el nombre de la sala (▾) en la cabecera. Se abre la lista de todas las salas, primero las que están **en vivo** ("3 charlas en simultáneo" si hay varias), cada una con su charla actual o siguiente, la cuenta regresiva ("termina en 19 min" / "empieza en 9 min") y cuánta gente está conectada; un click cambia de sala manteniendo el idioma. La cabecera muestra la charla actual o la que sigue con la cuenta regresiva, y se actualiza sola con la agenda.
+- **Tu cuenta**: click en tu nombre en la cabecera abre tu cuenta (nombre, mail, rol) con **Cerrar sesión** y **Cambiar nombre / rol**. Quien entra sin cuenta ve el badge *invitado · solo lectura*; clickearlo abre el inicio de sesión.
 - ⚙ → **Pausar para releer** congela la pantalla (los subtítulos siguen llegando por detrás) y **Volver al vivo** la retoma. **Alto contraste** activa el modo para baja visión / personas sordas: tipografía Atkinson Hyperlegible, letra grande, últimas tres líneas resaltadas. Se recuerda en ese dispositivo.
 
 ### 4.3 Pantalla de la sala y OBS
@@ -130,7 +132,8 @@ Agregá `&overlay=1` a la URL de la audiencia para obtener subtítulos grandes, 
 
 `fs=` fija el tamaño de letra en píxeles.
 
-- **Pantalla de sala con QR**: `https://captions.miconferencia.org/s/main?lang=es&tv=1` muestra los subtítulos grandes y el QR de la sala abajo a la derecha, para el proyector o una TV lateral. El QR solo, para imprimir: `/api/sessions/main/qr.svg` (usa `PUBLIC_URL` del `.env`).
+- **Pantalla de sala con QR**: `https://captions.miconferencia.org/s/main?lang=es&tv=1` muestra los subtítulos grandes y el QR de la sala abajo a la derecha, para el proyector o una TV lateral.
+- **Tarjeta de acceso de la sala** (para imprimir en la puerta o proyectar entre charlas): `https://captions.miconferencia.org/s/main/qr?lang=es` — se abre con el botón **QR** de cada tarjeta de la portada o con ⚙ → **QR de la sala**. Trae el QR grande sobre el fondo y color de la sala, nombre y ubicación, evento y fecha, la charla actual o siguiente con cuenta regresiva, la agenda completa del día (la charla en vivo resaltada, las pasadas atenuadas) y los idiomas disponibles. **Imprimir** la saca en A4 en blanco; en pantalla se actualiza sola cada 30 s. El QR pelado, para otros usos: `/api/sessions/main/qr.svg` (usa `PUBLIC_URL` del `.env`).
 - **vMix / OBS fuente de texto / carteles LED**: `/api/sessions/main/now.txt?lang=es` devuelve el último subtítulo como texto; `now.json` agrega estado (`live`, `deadAir`) y hora.
 
 ### 4.4 Panel de producción
@@ -189,8 +192,8 @@ Para GitHub: creá una *OAuth App* en GitHub → Settings → Developer settings
 
 1. En https://console.cloud.google.com/apis/credentials creá un **ID de cliente OAuth** de tipo *Aplicación web*. En *Orígenes autorizados de JavaScript* agregá `https://captions.tu-dominio.org` (y `http://localhost:8080` para probar en tu PC).
 2. Poné el ID en `.env` como `GOOGLE_CLIENT_ID=...` y reiniciá.
-3. En la sala aparece el botón *Sign in with Google*. El nombre y la foto de la cuenta se muestran en la lista de conectados y en el chat.
-4. `ALLOW_GUESTS=0` obliga a iniciar sesión. `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor; vacío = cualquiera con sesión. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
+3. En la pantalla de bienvenida de la sala aparecen *Iniciar sesión con Google* y *Entrar con GitHub* (también en ⚙ → *Yo*). El nombre y la foto de la cuenta se muestran en la cabecera, en la lista de conectados y en el chat. Para probar en tu PC, agregá `http://localhost:8080/api/auth/github/callback` como segunda callback en la OAuth App de GitHub.
+4. `GUEST_ACCESS` define qué puede hacer quien entra sin cuenta cuando hay login configurado: `limited` (por defecto: sólo lee los subtítulos, con un nombre validado; sin chat, mano, expositor ni mail — ve un aviso y un botón para iniciar sesión), `full` (igual que una cuenta) u `off` (obligatorio iniciar sesión; equivale a `ALLOW_GUESTS=0`). `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor; vacío = cualquiera con sesión. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
 
 ### Chat de la sala
 
