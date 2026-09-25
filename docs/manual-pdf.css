@@ -1,0 +1,90 @@
+@page {
+  margin: 22mm 18mm 20mm 18mm;
+}
+:root {
+  --red: #FF323C; --yellow: #FFBA00; --teal: #00ACA8; --ink: #15151a; --muted: #5a5a66; --line: #e2e2ea;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: 'DejaVu Sans', Arial, sans-serif;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+h1, h2, h3, h4 {
+  font-family: 'DejaVu Sans', Arial, sans-serif;
+  font-weight: bold;
+  letter-spacing: .01em;
+  color: var(--ink);
+  page-break-after: avoid;
+}
+h1 {
+  font-size: 26px;
+  margin: 0 0 4px;
+  padding-bottom: 10px;
+  border-bottom: 5px solid var(--red);
+  background: linear-gradient(90deg, var(--red) 0 33%, var(--yellow) 33% 66%, var(--teal) 66% 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+h2 {
+  font-size: 19px;
+  margin: 30px 0 10px;
+  padding: 6px 10px;
+  background: #f4f4f6;
+  border-left: 6px solid var(--red);
+}
+h2:nth-of-type(3n+2) { border-left-color: var(--yellow); }
+h2:nth-of-type(3n) { border-left-color: var(--teal); }
+h3 {
+  font-size: 15px;
+  margin: 18px 0 6px;
+  color: var(--teal);
+}
+p { margin: 8px 0; }
+a { color: var(--teal); text-decoration: none; }
+strong { color: var(--ink); }
+code {
+  font-family: 'DejaVu Sans Mono', monospace;
+  background: #f0f0f3;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+pre {
+  background: #15151a;
+  color: #e8e8ee;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 10.5px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+pre code { background: none; color: inherit; padding: 0; }
+img {
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  margin: 10px 0;
+  page-break-inside: avoid;
+}
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 11.5px; }
+th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f4f4f6; }
+blockquote {
+  margin: 10px 0; padding: 6px 14px; border-left: 4px solid var(--yellow); background: #fffaf0; color: var(--muted);
+}
+hr { border: none; border-top: 1px solid var(--line); margin: 24px 0; }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 3px 0; }
+.title-block {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.cover-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 6px;
+}
