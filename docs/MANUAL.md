@@ -2,6 +2,10 @@
 
 Guía para el equipo de producción de una conferencia. Cubre la instalación, la configuración de los escenarios, la operación durante el evento y qué hacer si algo falla.
 
+📄 Todas las capturas de esta guía son de la demo pública corriendo en vivo (no mockups).
+
+![Portada: salas con agenda en vivo de Nerdearla 2026](img/01-salas-agenda.jpg)
+
 ## 1. Qué es y cómo funciona
 
 Live Captions toma el audio en vivo de cada escenario y produce subtítulos en tiempo real en el idioma original y traducidos (español, inglés, portugués u otros). La audiencia los ve desde el celular o desde una pantalla de la sala, eligiendo sesión e idioma.
@@ -115,6 +119,8 @@ Alternativas a la consola web:
 
 ### 4.2 Qué ve la audiencia
 
+![Subtítulos en vivo con traducción y controles de idioma](img/02-sala-traduccion.jpg)
+
 - `https://captions.miconferencia.org/` lista los escenarios; cada tarjeta muestra si hay audio en vivo.
 - `https://captions.miconferencia.org/s/main?lang=es` es la vista de subtítulos. Ese es el link para el **QR de la sala**.
 - Botones: idioma, **ORIG** (muestra también la frase original debajo de la traducción), **A−/A+** tamaño de letra.
@@ -136,7 +142,11 @@ Agregá `&overlay=1` a la URL de la audiencia para obtener subtítulos grandes, 
 - **Tarjeta de acceso de la sala** (para imprimir en la puerta o proyectar entre charlas): `https://captions.miconferencia.org/s/main/qr?lang=es` — se abre con el botón **QR** de cada tarjeta de la portada o con ⚙ → **QR de la sala**. Trae el QR grande sobre el fondo y color de la sala, nombre y ubicación, evento y fecha, la charla actual o siguiente con cuenta regresiva, la agenda completa del día (la charla en vivo resaltada, las pasadas atenuadas) y los idiomas disponibles. **Imprimir** la saca en A4 en blanco; en pantalla se actualiza sola cada 30 s. El QR pelado, para otros usos: `/api/sessions/main/qr.svg` (usa `PUBLIC_URL` del `.env`).
 - **vMix / OBS fuente de texto / carteles LED**: `/api/sessions/main/now.txt?lang=es` devuelve el último subtítulo como texto; `now.json` agrega estado (`live`, `deadAir`) y hora.
 
+![Tarjeta de acceso de la sala con QR y agenda del día](img/04-pantalla-qr.jpg)
+
 ### 4.4 Panel de producción
+
+![Panel de producción /admin: audio, motor, latencia y audiencia por sesión](img/admin.png)
 
 `https://captions.miconferencia.org/admin` muestra, por sesión:
 
@@ -197,7 +207,15 @@ Para GitHub: creá una *OAuth App* en GitHub → Settings → Developer settings
 
 ### Chat de la sala
 
+![Chat de la sala con mano alzada y palabra concedida](img/03-chat-palabra.jpg)
+
 Botón 💬 en la cabecera. Tiene emojis, audios (mantener apretado 🎙, hasta 20 s) y **levantar la mano ✋**: el expositor ve las manos levantadas en el chat y con *dar la palabra* habilita a esa persona; mientras tanto nadie más puede escribir (ven "Esperá: X tiene la palabra") hasta que el expositor apreta *Cerrar palabra*. Los mensajes se guardan con la transcripción (`transcripts/<id>.jsonl`) y los últimos 50 se muestran a quien entra tarde. Los expositores aparecen con 🎤.
+
+### "¿Qué me perdí?" y modo día
+
+![Resumen con IA "¿Qué me perdí?" y el modo claro](img/05-que-me-perdi.jpg)
+
+El botón ⚙ → **¿Qué me perdí?** (sección 4.2) y el interruptor de tema día/noche de la cabecera (![modo día](img/06-modo-dia.jpg)) funcionan en cualquier sala, con o sin cuenta.
 
 ### Enviar la transcripción por mail
 

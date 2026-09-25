@@ -140,6 +140,29 @@ La traducción puede correr sin salir del edificio: `TRANSLATOR=ollama OLLAMA_MO
 
 ## Arquitectura
 
+```mermaid
+flowchart LR
+    subgraph Escenario
+        MIC["🎙 Micrófono / línea<br/>(operator.html)"]
+        FF["ffmpeg / tools/ingest.js<br/>(RTMP·SRT·archivo)"]
+    end
+    MIC -- "WS PCM 16kHz<br/>/ws/ingest/:id" --> SRV
+    FF -- "WS PCM 16kHz<br/>/ws/ingest/:id" --> SRV
+
+    subgraph SRV["Servidor Live Captions (Node)"]
+        SESSION["session.js<br/>pipeline por sesión"]
+        HUB["hub.js<br/>fan-out + replay + chat"]
+        SESSION --> HUB
+    end
+
+    SESSION <-- "streaming STT" --> GEMINI_STT["Gemini Live<br/>gemini-3.5-transcribe-live"]
+    SESSION <-- "traducción + resumen" --> GEMINI_TR["Gemini flash-lite / Gemma (Ollama)"]
+
+    HUB -- "WS JSON<br/>/ws/audience/:id" --> VIEWER["viewer.html<br/>audiencia / overlay OBS / TV+QR"]
+    HUB -- "WS JSON" --> ADMIN["admin.html<br/>panel de producción"]
+    SRV -- "REST" --> API["/api/sessions/:id/transcript.srt·vtt·txt·json<br/>/metrics · /now.txt · /qr.svg"]
+```
+
 - `server/index.js` — HTTP (estáticos + API) y WebSockets (`/ws/audience/<id>`, `/ws/ingest/<id>`).
 - `server/session.js` — pipeline de una sesión: audio → transcriptor → segmentos → traductor → hub + log.
 - `server/engines/gemini-transcribe.js` — cliente Live API (`gemini-3.5-transcribe-live`): parciales (`interimInputTranscription`), finales (`inputTranscription`), rotación de sesión y reconexión.
