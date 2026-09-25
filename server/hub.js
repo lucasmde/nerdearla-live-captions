@@ -6,15 +6,30 @@ export class Hub {
     this.clients = new Map(); // sessionId -> Set<ws>
     this.history = new Map(); // sessionId -> Array<segment>
     this.status = new Map(); // sessionId -> { live, source, detectedLang, updatedAt }
+    this.chat = new Map(); // sessionId -> Array<msg>
+  }
+
+  /** Room chat: store (last 200) and broadcast. */
+  chatMessage(sessionId, ws, text) {
+    text = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+    if (!text) return null;
+    const now = Date.now();
+    if (ws._lastChat && now - ws._lastChat < 700) return null; // simple flood control
+    ws._lastChat = now;
+    const msg = { id: `${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, t: now, name: ws.who?.name || 'Anónimo', picture: ws.who?.picture || '', role: ws.who?.role || 'listener', text };
+    if (!this.chat.has(sessionId)) this.chat.set(sessionId, []);
+    const list = this.chat.get(sessionId); list.push(msg); if (list.length > 200) list.splice(0, list.length - 200);
+    this.broadcast(sessionId, { type: 'chat', msg });
+    return msg;
   }
 
   subscribe(sessionId, ws, who = {}) {
     if (!this.clients.has(sessionId)) this.clients.set(sessionId, new Set());
-    ws.who = { name: String(who.name || '').slice(0, 40), role: who.role === 'speaker' ? 'speaker' : 'listener', lang: who.lang || null };
+    ws.who = { name: String(who.name || '').slice(0, 40), role: who.role === 'speaker' ? 'speaker' : 'listener', lang: who.lang || null, picture: who.picture || '', email: who.email || '' };
     this.clients.get(sessionId).add(ws);
     // Replay finalized history so late joiners see context.
     const hist = this.history.get(sessionId) || [];
-    ws.send(JSON.stringify({ type: 'history', sessionId, segments: hist, status: this.status.get(sessionId) || null, presence: this.presence(sessionId) }));
+    ws.send(JSON.stringify({ type: 'history', sessionId, segments: hist, status: this.status.get(sessionId) || null, presence: this.presence(sessionId), chat: (this.chat.get(sessionId) || []).slice(-50) }));
     this.broadcast(sessionId, { type: 'presence', presence: this.presence(sessionId) });
     ws.on('close', () => { this.clients.get(sessionId)?.delete(ws); this.broadcast(sessionId, { type: 'presence', presence: this.presence(sessionId) }); });
   }
@@ -27,7 +42,11 @@ export class Hub {
   presence(sessionId) {
     const all = [...(this.clients.get(sessionId) || [])];
     const speakers = all.filter((c) => c.who?.role === 'speaker');
-    return { total: all.length, listeners: all.length - speakers.length, speakers: speakers.length, speakerNames: speakers.map((c) => c.who.name).filter(Boolean).slice(0, 5) };
+    return {
+      total: all.length, listeners: all.length - speakers.length, speakers: speakers.length,
+      speakerNames: speakers.map((c) => c.who.name).filter(Boolean).slice(0, 5),
+      people: all.slice(0, 40).map((c) => ({ name: c.who.name, role: c.who.role, picture: c.who.picture })),
+    };
   }
 
   broadcast(sessionId, msg) {

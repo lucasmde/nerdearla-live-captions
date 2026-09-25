@@ -6,15 +6,29 @@ import { WebSocketServer } from 'ws';
 import { config, langLabel } from './config.js';
 import { Hub } from './hub.js';
 import { LiveSession } from './session.js';
+import { makeAuth } from './auth.js';
 
 const app = express();
 const hub = new Hub();
+const auth = makeAuth(config);
 const sessions = new Map();
 
 for (const def of config.sessions) sessions.set(def.id, new LiveSession(def, config, hub));
 
 app.use(express.static(path.join(config.root, 'public')));
 app.use(express.json());
+
+// --- v2: identity -------------------------------------------------------------
+app.get('/api/config', (_req, res) => res.json({ googleClientId: auth.clientId || null, allowGuests: auth.allowGuests, engine: config.engine }));
+app.get('/api/me', (req, res) => { const s = auth.fromRequest(req); res.json(s ? { name: s.name, email: s.email, picture: s.picture, canSpeak: s.canSpeak } : null); });
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const session = await auth.loginWithGoogle(req.body?.credential);
+    res.setHeader('Set-Cookie', auth.cookieFor(session, req.headers['x-forwarded-proto'] === 'https' || req.secure));
+    res.json({ name: session.name, email: session.email, picture: session.picture, canSpeak: session.canSpeak });
+  } catch (e) { res.status(401).json({ error: String(e?.message || e) }); }
+});
+app.post('/api/auth/logout', (_req, res) => { res.setHeader('Set-Cookie', auth.clearCookie()); res.json({ ok: true }); });
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, engine: config.engine, sessions: sessions.size }));
 
@@ -77,15 +91,31 @@ server.on('upgrade', (req, socket, head) => {
   const m = url.pathname.match(/^\/ws\/(audience|ingest)\/([\w-]+)$/);
   if (!m || !sessions.has(m[2])) { socket.destroy(); return; }
   const [, kind, id] = m;
-  if (kind === 'ingest' && config.ingestToken && url.searchParams.get('token') !== config.ingestToken) {
-    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return;
+  if (kind === 'ingest') {
+    const tokenOk = config.ingestToken && url.searchParams.get('token') === config.ingestToken;
+    const me = auth.fromRequest(req);
+    const sessionOk = me && me.canSpeak;
+    const open = !config.ingestToken && (auth.allowGuests || !auth.enabled);
+    if (!tokenOk && !sessionOk && !open) { socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); socket.destroy(); return; }
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
     const session = sessions.get(id);
     if (kind === 'audience') {
-      hub.subscribe(id, ws, { name: url.searchParams.get('name'), role: url.searchParams.get('role'), lang: url.searchParams.get('lang') });
+      const me = auth.fromRequest(req);
+      const wantsSpeaker = url.searchParams.get('role') === 'speaker';
+      const who = me
+        ? { name: me.name, picture: me.picture, email: me.email, role: wantsSpeaker && me.canSpeak ? 'speaker' : 'listener', lang: url.searchParams.get('lang') }
+        : { name: url.searchParams.get('name'), role: auth.allowGuests ? url.searchParams.get('role') : 'listener', lang: url.searchParams.get('lang') };
+      hub.subscribe(id, ws, who);
       const wanted = url.searchParams.get('lang'); if (wanted) session.addTarget(wanted);
-      ws.on('message', (data, isBinary) => { if (isBinary) return; try { const m = JSON.parse(data); if (m.type === 'setLang') { ws.who.lang = m.lang; session.addTarget(m.lang); } } catch {} });
+      ws.on('message', (data, isBinary) => {
+        if (isBinary) return;
+        try {
+          const m = JSON.parse(data);
+          if (m.type === 'setLang') { ws.who.lang = m.lang; session.addTarget(m.lang); }
+          else if (m.type === 'chat') { if (me || auth.allowGuests) { const msg = hub.chatMessage(id, ws, m.text); if (msg) session.append({ chat: msg }); } }
+        } catch {}
+      });
       return;
     }
     const source = url.searchParams.get('source') || 'ingest';

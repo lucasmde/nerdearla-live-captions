@@ -56,6 +56,13 @@ export const config = {
   translatePartials: process.env.TRANSLATE_PARTIALS !== '0',
   partialTranslateEveryMs: Number(process.env.PARTIAL_TRANSLATE_EVERY_MS || 2500),
   transcriptsDir: process.env.TRANSCRIPTS_DIR || path.join(ROOT, 'transcripts'),
+  // --- v2: identity ---
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',           // Sign in with Google (Google Identity Services)
+  sessionSecret: process.env.SESSION_SECRET || '',              // HMAC secret for the session cookie (random per start if empty)
+  allowGuests: process.env.ALLOW_GUESTS !== '0',               // let people in with just a name (no account)
+  speakerEmails: (process.env.SPEAKER_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean), // who may transmit; empty = anyone signed in
+  allowedDomains: (process.env.ALLOWED_DOMAINS || '').split(',').map((s) => s.trim()).filter(Boolean), // restrict sign-in to these email domains
+  publicUrl: process.env.PUBLIC_URL || '',                     // e.g. https://captions.example.org (used for links in mails)
   sessionsFile: file,
   sessions: (data.sessions || []).map((s) => ({
     id: s.id,

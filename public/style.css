@@ -70,3 +70,26 @@ button.btn.on { background: var(--teal); border-color: var(--teal); color: #000;
 input.btn { text-transform: none; font-family: var(--font-body); font-weight: 400; letter-spacing: 0; }
 .modal { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
 .modal .card { max-width: 420px; width: 100%; }
+
+/* v2: people popover */
+.popover { position: fixed; top: 64px; right: 16px; z-index: 40; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 260px; max-height: 60vh; overflow: auto; box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 14px; }
+.popover b { display: block; margin-bottom: 8px; font-family: var(--font-display); text-transform: uppercase; }
+.person { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.person img, .person .ini { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.person .ini { display: inline-flex; align-items: center; justify-content: center; background: var(--teal); color: #000; font-weight: 700; font-size: 13px; }
+
+/* v2: room chat */
+.chat { position: fixed; right: 0; top: 0; bottom: 0; width: 340px; max-width: 100vw; background: var(--panel); border-left: 1px solid var(--line); z-index: 30; display: flex; flex-direction: column; }
+.chat-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.chat-head b { font-family: var(--font-display); text-transform: uppercase; }
+.chat-list { flex: 1; overflow: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; font-size: 14px; }
+.chat-form { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.chat-form input { flex: 1; }
+.msg { display: flex; gap: 8px; align-items: flex-start; }
+.msg img, .msg .ini { width: 28px; height: 28px; border-radius: 50%; flex: none; object-fit: cover; }
+.msg .ini { display: inline-flex; align-items: center; justify-content: center; background: var(--yellow); color: #000; font-weight: 700; font-size: 13px; }
+.msg.spk .ini { background: var(--red); color: #fff; }
+.msg .meta { font-size: 12px; margin-bottom: 2px; }
+body.with-chat .captions { margin-right: 340px; }
+@media (max-width: 700px) { .chat { width: 100vw; } body.with-chat .captions { margin-right: 0; display: none; } }
+body.with-chat header.top { margin-right: 340px; } @media (max-width: 700px) { body.with-chat header.top { margin-right: 0; } }

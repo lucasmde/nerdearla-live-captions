@@ -14,8 +14,10 @@
   <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
   <div class="toolbar">
     <select id="langSel" class="btn" title="Idioma de los subtítulos"></select>
-    <span class="badge" id="who" title="Conectados en esta sala"><span>👥</span><span>…</span></span>
+    <span class="badge" id="who" title="Ver quién está conectado" style="cursor:pointer"><span>👥</span><span>…</span></span>
+    <span class="badge" id="meBadge" style="display:none"><img id="meImg" alt="" style="width:18px;height:18px;border-radius:50%;display:none"><span id="meName"></span></span>
     <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
+    <button class="btn" id="chatBtn" title="Chat de la sala">💬 <span id="chatN"></span></button>
     <button class="btn" id="gear" title="Ajustes">⚙</button>
   </div>
   <div id="panel" class="panel" style="display:none">
@@ -53,10 +55,23 @@
 </header>
 <div id="welcome" class="modal" style="display:none"><div class="card">
   <h3 style="margin:0 0 6px">¿Cómo entrás a la sala?</h3>
-  <p class="muted" style="margin:0 0 10px;font-size:14px">Sin cuenta ni contraseña. Sólo para mostrar quién está conectado.</p>
-  <input id="wName" class="btn" placeholder="Tu nombre (opcional)" maxlength="40" style="width:100%;margin-bottom:8px">
-  <div class="toolbar"><button class="btn primary" id="wListener">🎧 Entrar como oyente</button><button class="btn" id="wSpeaker">🎤 Entrar como expositor</button></div>
+  <div id="gBox" style="display:none;margin:4px 0 10px">
+    <p class="muted" style="margin:0 0 8px;font-size:14px">Con tu cuenta de Google se muestran tu nombre y tu foto.</p>
+    <div id="gBtn"></div>
+    <div class="muted" id="gErr" style="font-size:12px;color:var(--red)"></div>
+  </div>
+  <div id="guestBox">
+    <p class="muted" style="margin:0 0 10px;font-size:14px" id="guestHint">Sin cuenta ni contraseña. Sólo para mostrar quién está conectado.</p>
+    <input id="wName" class="btn" placeholder="Tu nombre (opcional)" maxlength="40" style="width:100%;margin-bottom:8px">
+    <div class="toolbar"><button class="btn primary" id="wListener">🎧 Entrar como oyente</button><button class="btn" id="wSpeaker">🎤 Entrar como expositor</button></div>
+  </div>
 </div></div>
+<div id="people" class="popover" style="display:none"></div>
+<aside id="chat" class="chat" style="display:none">
+  <div class="chat-head"><b>Chat de la sala</b><button class="btn" id="chatClose">✕</button></div>
+  <div class="chat-list" id="chatList"></div>
+  <form class="chat-form" id="chatForm"><input id="chatInput" class="btn" placeholder="Escribí un mensaje…" maxlength="500" autocomplete="off"><button class="btn primary" type="submit">Enviar</button></form>
+</aside>
 <main class="captions" id="captions"><p class="seg waiting" id="waiting">Esperando audio de la sesión…</p></main>
 <script>
 const id = location.pathname.split('/').pop();
@@ -71,6 +86,57 @@ const caps = $('#captions');
 let partialEl = null, meta = null, segs = new Map();
 let me = { name: '', role: '' };
 try { me = JSON.parse(localStorage.getItem('me') || '{}'); } catch {}
+let account = null; // signed-in Google account, if any
+let lastPresence = null;
+async function initIdentity() {
+  const [cfg, who] = await Promise.all([fetch('/api/config').then(r => r.json()), fetch('/api/me').then(r => r.json())]);
+  account = who;
+  if (account) { me.name = account.name; localStorage.setItem('me', JSON.stringify(me)); showMe(); }
+  if (cfg.googleClientId && !account) {
+    $('#gBox').style.display = '';
+    if (!cfg.allowGuests) { $('#guestBox').style.display = 'none'; }
+    const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => {
+      google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: async (resp) => {
+        const r = await fetch('/api/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
+        if (!r.ok) { $('#gErr').textContent = 'No se pudo iniciar sesión: ' + ((await r.json()).error || r.status); return; }
+        account = await r.json(); me.name = account.name; showMe();
+        // role: speakers must be allowed by the server; default listener
+        saveMe(account.name, account.canSpeak && me.role === 'speaker' ? 'speaker' : (me.role || 'listener'));
+        $('#welcome').style.display = 'none'; if (sock) sock.close(); else connect();
+      } });
+      google.accounts.id.renderButton($('#gBtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: 'es' });
+    };
+    document.head.appendChild(s);
+  }
+  if (account && !me.role) { $('#guestHint').textContent = 'Hola ' + account.name + '. ¿Entrás a escuchar o a exponer?'; $('#wName').style.display = 'none'; }
+}
+function showMe() {
+  if (!account) return;
+  $('#meBadge').style.display = '';
+  $('#meName').textContent = account.name;
+  if (account.picture) { $('#meImg').src = account.picture; $('#meImg').style.display = ''; }
+}
+// ---- room chat
+let chatMsgs = [], unread = 0;
+const chatOpen = () => $('#chat').style.display !== 'none';
+function renderChat(isNew) {
+  const list = $('#chatList');
+  if (!chatOpen()) { if (isNew) { unread++; $('#chatN').textContent = unread; } return; }
+  const hhmm = (t) => new Date(t).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  list.innerHTML = chatMsgs.map(m => `<div class="msg ${m.role === 'speaker' ? 'spk' : ''}">${m.picture ? `<img src="${m.picture}" alt="">` : `<span class="ini">${(m.name || '?').slice(0, 1).toUpperCase()}</span>`}<div><div class="meta"><b>${esc(m.name)}</b>${m.role === 'speaker' ? ' 🎤' : ''} <span class="muted">${hhmm(m.t)}</span></div><div>${esc(m.text)}</div></div></div>`).join('');
+  list.scrollTop = list.scrollHeight;
+}
+function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+$('#chatBtn').onclick = () => { const c = $('#chat'); c.style.display = chatOpen() ? 'none' : ''; document.body.classList.toggle('with-chat', chatOpen()); if (chatOpen()) { unread = 0; $('#chatN').textContent = ''; renderChat(); $('#chatInput').focus(); } };
+$('#chatClose').onclick = () => $('#chatBtn').onclick();
+$('#chatForm').onsubmit = (e) => { e.preventDefault(); const t = $('#chatInput').value.trim(); if (!t || !sock || sock.readyState !== 1) return; sock.send(JSON.stringify({ type: 'chat', text: t })); $('#chatInput').value = ''; };
+$('#who').onclick = () => { const p = $('#people'); p.style.display = p.style.display === 'none' ? '' : 'none'; renderPeople(); };
+function renderPeople() {
+  const p = lastPresence; const box = $('#people'); if (!p) { box.textContent = 'Nadie conectado todavía.'; return; }
+  const item = (x) => `<div class="person">${x.picture ? `<img src="${x.picture}" alt="">` : `<span class="ini">${(x.name || '?').slice(0, 1).toUpperCase()}</span>`}<span>${x.name || 'Anónimo'}</span><span class="muted">${x.role === 'speaker' ? '🎤 expositor' : '🎧 oyente'}</span></div>`;
+  box.innerHTML = `<b>${p.total} en la sala</b>` + (p.people || []).map(item).join('') + (p.total > (p.people || []).length ? `<div class="muted">y ${p.total - p.people.length} más…</div>` : '');
+}
 function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); }
 if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
 $('#wListener').onclick = () => { saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
@@ -78,7 +144,7 @@ $('#wSpeaker').onclick = () => { saveMe($('#wName').value, 'speaker'); $('#welco
 $('#saveMe').onclick = () => { saveMe($('#myName').value, $('#myRole').value); if (sock) sock.close(); };
 $('#gear').onclick = () => { const p = $('#panel'); p.style.display = p.style.display === 'none' ? '' : 'none'; $('#gear').classList.toggle('on', p.style.display !== 'none'); };
 let sock = null;
-function presence(p) { if (!p) return; $('#who').lastElementChild.textContent = `${p.total} conectado${p.total === 1 ? '' : 's'} · ${p.listeners} oyente${p.listeners === 1 ? '' : 's'} · ${p.speakers} expositor${p.speakers === 1 ? '' : 'es'}${p.speakerNames?.length ? ' (' + p.speakerNames.join(', ') + ')' : ''}`; }
+function presence(p) { if (!p) return; lastPresence = p; if ($('#people').style.display !== 'none') renderPeople(); $('#who').lastElementChild.textContent = `${p.total} conectado${p.total === 1 ? '' : 's'} · ${p.listeners} oyente${p.listeners === 1 ? '' : 's'} · ${p.speakers} expositor${p.speakers === 1 ? '' : 'es'}${p.speakerNames?.length ? ' (' + p.speakerNames.join(', ') + ')' : ''}`; }
 
 fetch('/api/sessions').then(r => r.json()).then(d => {
   meta = d.sessions.find(s => s.id === id); if (!meta) return;
@@ -100,7 +166,8 @@ function connect() {
   ws.onclose = () => { setBadge('off', 'reconectando'); setTimeout(() => { if (sock === ws) connect(); }, 1500); };
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); presence(m.presence); }
+    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); presence(m.presence); chatMsgs = m.chat || []; renderChat(); }
+    else if (m.type === 'chat') { chatMsgs.push(m.msg); if (chatMsgs.length > 200) chatMsgs.shift(); renderChat(true); }
     else if (m.type === 'presence') presence(m.presence);
     else if (m.type === 'final') { if (partialEl) { partialEl.remove(); partialEl = null; } segs.set(m.segment.id, m.segment); trim(); rerender(); }
     else if (m.type === 'translation') { const s = segs.get(m.segId); if (s) { s.tr = s.tr || {}; s.tr[m.lang] = m.text; rerender(); } }
@@ -219,6 +286,7 @@ $('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('
 if (showOrig) $('#orig').classList.add('on');
 saveMe(me.name, me.role || (document.body.classList.contains('overlay') ? 'listener' : me.role));
 if (me.role) connect();
+initIdentity();
 </script>
 </body>
 </html>
