@@ -133,6 +133,10 @@ La traducción puede correr sin salir del edificio: `TRANSLATOR=ollama OLLAMA_MO
 
 Protocolo hacia la audiencia (JSON): `history`, `partial {text, lang, tr}`, `final {segment}`, `translation {segId, lang, text}`, `status`.
 
+## Versión 2 (rama `v2`)
+
+Cuentas con **Google** (nombre y foto, lista de conectados, expositores por lista de mails), **chat de la sala** y **envío por mail** de la transcripción de un período. Todo opcional y configurado por variables de entorno; ver `docs/MANUAL.md` §8.
+
 ## Roadmap
 
 - STT local (whisper.cpp) como motor alternativo.

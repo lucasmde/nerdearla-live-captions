@@ -32,7 +32,9 @@
       <span class="muted">hasta</span><input type="time" id="expTo" class="btn" step="60">
       <select id="expFmt" class="btn"><option value="txt">TXT con horarios</option><option value="srt">SRT</option><option value="vtt">VTT</option><option value="json">JSON</option></select>
       <button class="btn primary" id="expGo">Descargar</button>
-      <span class="muted" style="font-size:12px">vacío = toda la sesión, en el idioma elegido</span>
+      <input id="mailTo" class="btn" type="email" placeholder="mail destino" style="width:190px">
+      <button class="btn" id="mailGo">✉ Enviar por mail</button>
+      <span class="muted" style="font-size:12px" id="expInfo">vacío = toda la sesión, en el idioma elegido</span>
     </div>
     <div class="row"><b>Yo</b>
       <input id="myName" class="btn" placeholder="Tu nombre" maxlength="40" style="min-width:160px">
@@ -115,6 +117,7 @@ function showMe() {
   if (!account) return;
   $('#meBadge').style.display = '';
   $('#meName').textContent = account.name;
+  if (account.email && !$('#mailTo').value) $('#mailTo').value = account.email;
   if (account.picture) { $('#meImg').src = account.picture; $('#meImg').style.display = ''; }
 }
 // ---- room chat
@@ -280,6 +283,17 @@ $('#detect').onclick = async () => {
   } catch (e) { info.textContent = 'Error: ' + e.message; }
   btn.disabled = false;
 };
+$('#mailGo').onclick = async () => {
+  const info = $('#expInfo'); const btn = $('#mailGo'); btn.disabled = true; info.textContent = 'Enviando…';
+  try {
+    const r = await fetch(`/api/sessions/${id}/transcript/mail`, { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ to: $('#mailTo').value.trim() || (account && account.email) || '', lang, from: $('#expFrom').value || undefined, until: $('#expTo').value || undefined, fmt: $('#expFmt').value }) });
+    const j = await r.json();
+    info.textContent = r.ok ? `✅ Enviado (${j.count} frases).` : '⚠️ ' + (j.error || r.status);
+  } catch (e) { info.textContent = '⚠️ ' + e.message; }
+  btn.disabled = false;
+};
+fetch('/api/mail/status').then(r => r.json()).then(m => { if (!m.enabled) { $('#mailGo').title = 'El servidor no tiene mail configurado'; $('#mailGo').style.opacity = .5; } });
 $('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
 function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }
 $('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('on', showOrig); rerender(); };

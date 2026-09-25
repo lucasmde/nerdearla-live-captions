@@ -163,3 +163,28 @@ Los archivos también quedan en la carpeta `transcripts/` del servidor (`<id>.js
 - `npm run mock` levanta el servidor sin API key con una charla simulada: sirve para probar la interfaz y los QR.
 - `./tools/demo-parallel.sh` mete las charlas de ejemplo de `demo/` en cinco sesiones a la vez.
 - `node tools/ingest.js --session main --input demo/talk_en.mp3` reproduce una charla en inglés a velocidad real contra el servidor; en `/s/main?lang=es` se ve el resultado.
+
+## 8. Versión 2: cuentas, chat y mail
+
+Todo lo de esta sección es opcional: sin configurar nada, la sala funciona como en la versión 1 (entrada con nombre, sin cuenta).
+
+### Inicio de sesión con Google
+
+1. En https://console.cloud.google.com/apis/credentials creá un **ID de cliente OAuth** de tipo *Aplicación web*. En *Orígenes autorizados de JavaScript* agregá `https://captions.tu-dominio.org` (y `http://localhost:8080` para probar en tu PC).
+2. Poné el ID en `.env` como `GOOGLE_CLIENT_ID=...` y reiniciá.
+3. En la sala aparece el botón *Sign in with Google*. El nombre y la foto de la cuenta se muestran en la lista de conectados y en el chat.
+4. `ALLOW_GUESTS=0` obliga a iniciar sesión. `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor; vacío = cualquiera con sesión. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
+
+### Chat de la sala
+
+Botón 💬 en la cabecera. Los mensajes se guardan con la transcripción (`transcripts/<id>.jsonl`) y los últimos 50 se muestran a quien entra tarde. Los expositores aparecen con 🎤.
+
+### Enviar la transcripción por mail
+
+En ⚙ → *Exportar* → escribí el mail destino (si iniciaste sesión, se completa con el tuyo), elegí "desde / hasta" y formato, y **Enviar por mail**. El servidor necesita un proveedor:
+
+- **SMTP** (`SMTP_URL`): con Gmail usá una *contraseña de aplicación* (Cuenta de Google → Seguridad → Verificación en dos pasos → Contraseñas de aplicaciones):
+  `SMTP_URL=smtps://tu-mail%40gmail.com:xxxx-xxxx-xxxx-xxxx@smtp.gmail.com:465`
+- **Resend** (`RESEND_API_KEY`): sin SMTP, https://resend.com (gratis hasta 3.000 mails/mes) con tu dominio verificado.
+
+`MAIL_FROM` define el remitente y `PUBLIC_URL` el link a la sala que va en el mail.

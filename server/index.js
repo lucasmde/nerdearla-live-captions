@@ -7,10 +7,12 @@ import { config, langLabel } from './config.js';
 import { Hub } from './hub.js';
 import { LiveSession } from './session.js';
 import { makeAuth } from './auth.js';
+import { makeMailer } from './mail.js';
 
 const app = express();
 const hub = new Hub();
 const auth = makeAuth(config);
+const mailer = makeMailer(config, (t, m) => console.log(`[${t}]`, m));
 const sessions = new Map();
 
 for (const def of config.sessions) sessions.set(def.id, new LiveSession(def, config, hub));
@@ -42,13 +44,16 @@ app.get('/s/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.
 app.get('/admin', (_req, res) => res.sendFile(path.join(config.root, 'public', 'admin.html')));
 app.get('/operator/:id', (req, res) => sessions.has(req.params.id) ? res.sendFile(path.join(config.root, 'public', 'operator.html')) : res.status(404).send('unknown session'));
 
-// Transcript export (SRT) — original or a target language.
-app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
-  const s = sessions.get(req.params.id);
-  if (!s) return res.status(404).end();
-  const lang = req.query.lang;
-  const file = path.join(config.transcriptsDir, `${s.id}.jsonl`);
-  if (!fs.existsSync(file)) return res.status(404).send('no transcript yet');
+// --- Transcript export (txt / srt / vtt / json), optional time window and language ---
+const parseT = (v) => {
+  if (!v) return null;
+  if (/^\d{13}$/.test(v)) return Number(v);
+  if (/^\d{1,2}:\d{2}$/.test(v)) { const [h, m] = v.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.getTime(); }
+  const t = Date.parse(v); return Number.isNaN(t) ? null : t;
+};
+function buildTranscript(sessionId, { fmt = 'txt', lang, from, to } = {}) {
+  const file = path.join(config.transcriptsDir, `${sessionId}.jsonl`);
+  if (!fs.existsSync(file)) return null;
   const segs = new Map();
   for (const line of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
     const o = JSON.parse(line);
@@ -56,31 +61,56 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
     else if (o.tr && segs.has(o.id)) Object.assign(segs.get(o.id).tr, o.tr);
   }
   let list = [...segs.values()];
-  // Optional time window: ?from=HH:MM&to=HH:MM (local server time), ISO date-times or epoch ms.
-  const parseT = (v) => {
-    if (!v) return null;
-    if (/^\d{13}$/.test(v)) return Number(v);
-    if (/^\d{1,2}:\d{2}$/.test(v)) { const [h, m] = v.split(':').map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.getTime(); }
-    const t = Date.parse(v); return Number.isNaN(t) ? null : t;
-  };
-  const from = parseT(req.query.from), to = parseT(req.query.to);
-  if (from) list = list.filter((s) => s.t >= from);
-  if (to) list = list.filter((s) => s.t <= to);
-  if (req.params.fmt === 'json') return res.json(list);
-  const vtt = req.params.fmt === 'vtt';
+  const f = parseT(from), t = parseT(to);
+  if (f) list = list.filter((s) => s.t >= f);
+  if (t) list = list.filter((s) => s.t <= t);
+  if (fmt === 'json') return { mime: 'application/json', body: JSON.stringify(list, null, 1), count: list.length };
+  const pick = (seg) => (lang && seg.tr?.[lang]) || seg.text;
+  if (fmt === 'txt') {
+    const hhmmss = (x) => new Date(x).toLocaleTimeString('es-AR', { hour12: false });
+    return { mime: 'text/plain', body: list.map((seg) => `[${hhmmss(seg.t)}] ${pick(seg)}`).join('\n'), count: list.length };
+  }
+  const vtt = fmt === 'vtt';
   const pad = (n, w = 2) => String(n).padStart(w, '0');
   const ts = (ms) => `${pad(Math.floor(ms / 3600000))}:${pad(Math.floor(ms / 60000) % 60)}:${pad(Math.floor(ms / 1000) % 60)}${vtt ? '.' : ','}${pad(ms % 1000, 3)}`;
   const body = list.map((seg, i) => {
-    const next = list[i + 1];
-    const end = next ? next.rel - 100 : seg.rel + 4000;
-    const text = lang && seg.tr?.[lang] ? seg.tr[lang] : seg.text;
-    return `${vtt ? '' : (i + 1) + '\n'}${ts(seg.rel)} --> ${ts(Math.max(end, seg.rel + 800))}\n${text}\n`;
+    const next = list[i + 1]; const end = next ? next.rel - 100 : seg.rel + 4000;
+    return `${vtt ? '' : (i + 1) + '\n'}${ts(seg.rel)} --> ${ts(Math.max(end, seg.rel + 800))}\n${pick(seg)}\n`;
   }).join('\n');
-  if (req.params.fmt === 'txt') {
-    const hhmmss = (t) => new Date(t).toLocaleTimeString('es-AR', { hour12: false });
-    return res.type('text/plain').send(list.map((seg) => `[${hhmmss(seg.t)}] ${(lang && seg.tr?.[lang]) || seg.text}`).join('\n'));
-  }
-  res.type(vtt ? 'text/vtt' : 'text/plain').send((vtt ? 'WEBVTT\n\n' : '') + body);
+  return { mime: vtt ? 'text/vtt' : 'text/plain', body: (vtt ? 'WEBVTT\n\n' : '') + body, count: list.length };
+}
+
+app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
+  const s = sessions.get(req.params.id);
+  if (!s) return res.status(404).end();
+  const out = buildTranscript(s.id, { fmt: req.params.fmt, lang: req.query.lang, from: req.query.from, to: req.query.to });
+  if (!out) return res.status(404).send('no transcript yet');
+  res.type(out.mime).send(out.body);
+});
+
+// v2: e-mail the transcript of a time window. Body: { to, lang, from, to, fmt }
+app.get('/api/mail/status', (_req, res) => res.json({ enabled: mailer.enabled, provider: mailer.provider }));
+app.post('/api/sessions/:id/transcript/mail', async (req, res) => {
+  const s = sessions.get(req.params.id);
+  if (!s) return res.status(404).json({ error: 'unknown session' });
+  if (!mailer.enabled) return res.status(503).json({ error: 'El envío por mail no está configurado en este servidor (SMTP_URL o RESEND_API_KEY).' });
+  const me = auth.fromRequest(req);
+  const to = String(req.body?.to || me?.email || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to)) return res.status(400).json({ error: 'Dirección de mail inválida.' });
+  if (!me && !auth.allowGuests) return res.status(401).json({ error: 'Iniciá sesión para enviar por mail.' });
+  const fmt = ['txt', 'srt', 'vtt', 'json'].includes(req.body?.fmt) ? req.body.fmt : 'txt';
+  const out = buildTranscript(s.id, { fmt, lang: req.body?.lang, from: req.body?.from, to: req.body?.until });
+  if (!out || !out.count) return res.status(404).json({ error: 'No hay transcripción en ese período.' });
+  const range = [req.body?.from, req.body?.until].filter(Boolean).join(' – ') || 'toda la sesión';
+  try {
+    await mailer.send({
+      to, subject: `Transcripción · ${s.def.name} (${range})`,
+      text: `Hola,\n\nAdjuntamos la transcripción de "${s.def.name}" (${range}, idioma: ${req.body?.lang || 'original'}, ${out.count} frases).\n\n${config.publicUrl ? config.publicUrl + '/s/' + s.id + '\n\n' : ''}Generado con Live Captions.`,
+      attachments: [{ filename: `${s.id}-${req.body?.lang || 'orig'}.${fmt}`, content: out.body }],
+    });
+    s.log('mail', `transcript (${out.count} segs) sent to ${to.replace(/(.{2}).+(@.*)/, '$1***$2')}`);
+    res.json({ ok: true, count: out.count });
+  } catch (e) { res.status(502).json({ error: 'No se pudo enviar: ' + String(e?.message || e).slice(0, 160) }); }
 });
 
 const server = http.createServer(app);

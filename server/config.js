@@ -62,7 +62,10 @@ export const config = {
   allowGuests: process.env.ALLOW_GUESTS !== '0',               // let people in with just a name (no account)
   speakerEmails: (process.env.SPEAKER_EMAILS || '').split(',').map((s) => s.trim()).filter(Boolean), // who may transmit; empty = anyone signed in
   allowedDomains: (process.env.ALLOWED_DOMAINS || '').split(',').map((s) => s.trim()).filter(Boolean), // restrict sign-in to these email domains
-  publicUrl: process.env.PUBLIC_URL || '',                     // e.g. https://captions.example.org (used for links in mails)
+  publicUrl: process.env.PUBLIC_URL || '',
+  smtpUrl: process.env.SMTP_URL || '',
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  mailFrom: process.env.MAIL_FROM || '',                     // e.g. https://captions.example.org (used for links in mails)
   sessionsFile: file,
   sessions: (data.sessions || []).map((s) => ({
     id: s.id,
