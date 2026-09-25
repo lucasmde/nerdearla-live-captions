@@ -19,6 +19,7 @@
     <span class="badge clickable" id="meBadge" style="display:none" title="Tu cuenta · cerrar sesión" role="button" tabindex="0"><img id="meImg" alt="" style="width:18px;height:18px;border-radius:50%;display:none"><span id="meName"></span></span>
     <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
     <span class="badge" id="q" title="Calidad en vivo: latencia de conexión · nivel de voz · retraso de subtítulos"><span>📶</span><span>…</span></span>
+    <button class="btn" id="share" title="Compartir esta sala (link)">🔗</button>
     <button class="btn" id="theme" title="Modo día / noche">☀️</button>
     <button class="btn" id="chatBtn" title="Chat de la sala">💬 <span id="chatN"></span></button>
     <button class="btn" id="gear" title="Ajustes">⚙</button>
@@ -35,6 +36,7 @@
     <div class="row"><b>Sala</b>
       <button class="btn" id="missed" title="Resumen con IA de lo que se dijo hasta ahora, en tu idioma">🕒 ¿Qué me perdí?</button>
       <button class="btn" id="qrBtn" title="Tarjeta de acceso de la sala: QR grande, charla actual y agenda del día, para proyectar o imprimir">▦ QR de la sala</button>
+      <button class="btn" id="share2" title="Copiar o compartir el link de esta sala">🔗 Compartir sala</button>
       <a class="btn" id="tvLink" href="#" title="Pantalla de sala: subtítulos grandes + QR">📺 Modo pantalla</a>
     </div>
     <div id="missedBox" class="missed" style="display:none"></div>
@@ -241,6 +243,15 @@ function renderQuality() {
   const cls = rtt < 150 ? 'live' : rtt < 400 ? '' : 'off';
   b.className = 'badge ' + cls; b.lastElementChild.textContent = `${rtt} ms · ${lvl} ${lastPong.audioDb != null && lastPong.live ? lastPong.audioDb + ' dB' : 'sin audio'} · CC ${age}`;
 }
+// ---- share the room link (Web Share on phones, clipboard elsewhere)
+async function shareRoom() {
+  const url = `${location.origin}/s/${id}?lang=${encodeURIComponent(lang)}`;
+  const title = `${meta?.name || 'Sala'} · subtítulos en vivo`;
+  if (navigator.share) { try { await navigator.share({ title, text: `Seguí la charla con subtítulos en tu idioma: ${title}`, url }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(url); toast('Link copiado: ' + url); }
+  catch { prompt('Copiá el link de la sala:', url); }
+}
+$('#share').onclick = shareRoom; $('#share2').onclick = shareRoom;
 // ---- day / night
 const applyTheme = (t) => { document.documentElement.dataset.theme = t; $('#theme').textContent = t === 'light' ? '🌙' : '☀️'; };
 $('#theme').onclick = () => { const t = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'; applyTheme(t); try { localStorage.setItem('lc_theme', t); } catch {} };
