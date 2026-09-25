@@ -4,7 +4,7 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 
 > Proyecto para la Vibeathon de Nerdearla 2026. Licencia Apache-2.0.
 
-[![CI](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml) · **[Demo pública en vivo](https://nerdearla-live-captions.onrender.com)** · [Video (3 min)](https://youtu.be/35TdPJCY5dw) · [Manual](docs/MANUAL.md) · [Evidencia: latencia, escala y costo](docs/EVIDENCIA.md)
+[![CI](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml/badge.svg)](https://github.com/lucasmde/nerdearla-live-captions/actions/workflows/ci.yml) · **[Demo pública en vivo](https://nerdearla-live-captions.onrender.com)** · [Video (3 min)](https://youtu.be/35TdPJCY5dw) · [Manual](docs/MANUAL.md) ([PDF](docs/manual.pdf)) · [Evidencia: latencia, escala y costo](docs/EVIDENCIA.md)
 
 > **Probalo ahora, sin instalar nada:** entrá a https://nerdearla-live-captions.onrender.com, elegí una sala, entrá como *expositor* y apretá **Transmitir micrófono**. Desde otro celular entrá a la misma sala como *oyente* en otro idioma. (Gemini real; es una instancia chica para la demo.)
 
@@ -123,7 +123,7 @@ Variables de entorno: ver [`.env.example`](.env.example). Las más importantes: 
 
 ## Manual de operación
 
-El paso a paso para producción y operadores de escenario (instalación, sesiones, operación durante el evento, OBS, exportación, problemas frecuentes) está en [docs/MANUAL.md](docs/MANUAL.md). Video demo: ver la entrega en Devpost.
+El paso a paso para producción y operadores de escenario (instalación, sesiones, operación durante el evento, OBS, exportación, problemas frecuentes) está en [docs/MANUAL.md](docs/MANUAL.md), o en PDF con capturas para leer online (GitHub lo muestra en el navegador) o descargar: [docs/manual.pdf](docs/manual.pdf). Video demo: ver la entrega en Devpost.
 
 ## Despliegue para una conferencia (guía)
 

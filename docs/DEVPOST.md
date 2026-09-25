@@ -4,7 +4,7 @@
 
 **Tagline (una línea):** Audio en vivo de cada escenario → subtítulos en tiempo real en el idioma original y traducidos a los que hagan falta, con una sala social (chat, mano alzada, audios) y agenda real integrada, para 5, 10 o 30 sesiones en paralelo.
 
-**Demo pública:** https://nerdearla-live-captions.onrender.com · **Video (3 min):** https://youtu.be/35TdPJCY5dw · **Manual:** [docs/MANUAL.md](MANUAL.md) · **Evidencia (latencia/escala/costo):** [docs/EVIDENCIA.md](EVIDENCIA.md)
+**Demo pública:** https://nerdearla-live-captions.onrender.com · **Video (3 min):** https://youtu.be/35TdPJCY5dw · **Manual:** [docs/MANUAL.md](MANUAL.md) ([PDF](manual.pdf)) · **Evidencia (latencia/escala/costo):** [docs/EVIDENCIA.md](EVIDENCIA.md)
 
 ## Inspiration
 
