@@ -12,7 +12,7 @@
 <div class="brandbar"></div>
 <header class="top">
   <div><h1 id="title">Operador</h1><div class="sub">Consola de escenario · envía el audio del escenario al servidor</div></div>
-  <span class="badge" id="st"><span class="dot"></span><span>desconectado</span></span>
+  <div class="toolbar"><a class="btn" id="backLink" href="#">← Volver a la sala</a><span class="badge" id="st"><span class="dot"></span><span>desconectado</span></span></div>
 </header>
 <div class="wrap" style="max-width:820px">
   <div class="card">
@@ -43,7 +43,7 @@ const id = location.pathname.split('/').pop();
 const $ = (s) => document.querySelector(s);
 const q = new URLSearchParams(location.search);
 $('#token').value = q.get('token') || localStorage.getItem('ingestToken') || '';
-$('#vlink').href = `/s/${id}?lang=es`; $('#olink').href = `/s/${id}?lang=es&overlay=1`;
+$('#vlink').href = `/s/${id}?lang=es`; $('#backLink').href = `/s/${id}?lang=es`; $('#olink').href = `/s/${id}?lang=es&overlay=1`;
 let ws, ctx, node, stream, t0, bytes = 0;
 const log = (m) => { const l = $('#log'); l.textContent += `[${new Date().toLocaleTimeString()}] ${m}\n`; l.scrollTop = l.scrollHeight; };
 const setBadge = (cls, txt) => { const b = $('#st'); b.className = 'badge ' + cls; b.lastElementChild.textContent = txt; };
