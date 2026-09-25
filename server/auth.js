@@ -48,6 +48,24 @@ export function makeAuth(cfg) {
       return { sub: p.sub, name: p.name || email.split('@')[0], email, picture: p.picture || '', canSpeak: isSpeaker || speakerEmails.size === 0, exp: Date.now() + MAX_AGE_S * 1000 };
     },
 
+    githubEnabled: !!(cfg.githubClientId && cfg.githubClientSecret),
+    githubAuthUrl(redirectUri, state) {
+      return `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(cfg.githubClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=read:user%20user:email&state=${encodeURIComponent(state)}`;
+    },
+    /** Exchange the OAuth code for a session payload (name, avatar, primary e-mail). */
+    async loginWithGithub(code, redirectUri) {
+      const tr = await fetch('https://github.com/login/oauth/access_token', { method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/json' }, body: JSON.stringify({ client_id: cfg.githubClientId, client_secret: cfg.githubClientSecret, code, redirect_uri: redirectUri }) });
+      const tok = (await tr.json()).access_token;
+      if (!tok) throw new Error('GitHub did not return a token');
+      const h = { authorization: `Bearer ${tok}`, accept: 'application/vnd.github+json', 'user-agent': 'live-captions' };
+      const u = await (await fetch('https://api.github.com/user', { headers: h })).json();
+      let email = (u.email || '').toLowerCase();
+      if (!email) { try { const list = await (await fetch('https://api.github.com/user/emails', { headers: h })).json(); email = (list.find((e) => e.primary && e.verified)?.email || '').toLowerCase(); } catch {} }
+      if (cfg.allowedDomains.length && !cfg.allowedDomains.some((d) => email.endsWith('@' + d))) throw new Error('email domain not allowed');
+      const isSpeaker = speakerEmails.size ? speakerEmails.has(email) : false;
+      return { sub: 'gh:' + u.id, name: u.name || u.login, email, picture: u.avatar_url || '', provider: 'github', canSpeak: isSpeaker || speakerEmails.size === 0, exp: Date.now() + MAX_AGE_S * 1000 };
+    },
+
     cookieFor(session, secure) {
       return `${COOKIE}=${encodeURIComponent(sign(session))}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE_S}${secure ? '; Secure' : ''}`;
     },

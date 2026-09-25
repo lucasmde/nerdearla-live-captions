@@ -23,7 +23,26 @@ app.use(express.json());
 app.set('trust proxy', true);
 
 // --- v2: identity -------------------------------------------------------------
-app.get('/api/config', (_req, res) => res.json({ googleClientId: auth.clientId || null, allowGuests: auth.allowGuests, engine: config.engine }));
+const baseUrl = (req) => config.publicUrl || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
+app.get('/api/config', (_req, res) => res.json({ googleClientId: auth.clientId || null, github: auth.githubEnabled, allowGuests: auth.allowGuests, engine: config.engine }));
+// Sign in with GitHub (OAuth App). Set GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET; callback = <PUBLIC_URL>/api/auth/github/callback
+const ghRedirect = (req) => `${baseUrl(req)}/api/auth/github/callback`;
+app.get('/api/auth/github', (req, res) => {
+  if (!auth.githubEnabled) return res.status(503).send('GitHub login not configured');
+  const state = Buffer.from(JSON.stringify({ back: String(req.query.back || '/').slice(0, 200), n: Math.random().toString(36).slice(2) })).toString('base64url');
+  res.setHeader('Set-Cookie', `lc_gh=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`);
+  res.redirect(auth.githubAuthUrl(ghRedirect(req), state));
+});
+app.get('/api/auth/github/callback', async (req, res) => {
+  try {
+    const cookieState = (req.headers.cookie || '').split(';').map((c) => c.trim()).find((c) => c.startsWith('lc_gh='))?.slice(6);
+    if (!req.query.code || !req.query.state || req.query.state !== cookieState) return res.status(400).send('estado inválido, volvé a intentar');
+    const back = JSON.parse(Buffer.from(String(req.query.state), 'base64url').toString()).back || '/';
+    const session = await auth.loginWithGithub(String(req.query.code), ghRedirect(req));
+    res.setHeader('Set-Cookie', [auth.cookieFor(session, req.secure || req.headers['x-forwarded-proto'] === 'https'), 'lc_gh=; Path=/; Max-Age=0']);
+    res.redirect(back.startsWith('/') ? back : '/');
+  } catch (e) { res.status(401).send('No se pudo iniciar sesión con GitHub: ' + String(e?.message || e).slice(0, 120)); }
+});
 app.get('/api/me', (req, res) => { const s = auth.fromRequest(req); res.json(s ? { name: s.name, email: s.email, picture: s.picture, canSpeak: s.canSpeak } : null); });
 app.post('/api/auth/google', async (req, res) => {
   try {
@@ -91,7 +110,6 @@ app.get('/api/sessions/:id/transcript.:fmt', (req, res) => {
 });
 
 // QR of the room URL (print it, put it on the stage screen). ?lang= is kept in the encoded link.
-const baseUrl = (req) => config.publicUrl || `${req.headers['x-forwarded-proto'] || req.protocol}://${req.headers['x-forwarded-host'] || req.get('host')}`;
 app.get('/api/sessions/:id/qr.svg', async (req, res) => {
   if (!sessions.has(req.params.id)) return res.status(404).end();
   const url = `${baseUrl(req)}/s/${req.params.id}${req.query.lang ? `?lang=${encodeURIComponent(req.query.lang)}` : ''}`;

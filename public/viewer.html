@@ -116,6 +116,9 @@ async function initIdentity() {
   account = who;
   if (account) { me.name = account.name; localStorage.setItem('me', JSON.stringify(me)); showMe(); }
   if (cfg.googleClientId && !account && me.role && !sessionStorage.getItem('gAsked')) { sessionStorage.setItem('gAsked', '1'); $('#welcome').style.display = 'flex'; $('#guestHint').textContent = 'Podés iniciar sesión con Google o seguir como ' + (me.name || 'invitado') + '.'; if (me.name) $('#wName').value = me.name; }
+  if (cfg.github && !account) {
+    for (const sel of ['#gBox', '#panel .row:has(#gBtn2)']) { const box = $(sel); if (!box) continue; const a = document.createElement('a'); a.className = 'btn gh'; a.href = '/api/auth/github?back=' + encodeURIComponent(location.pathname + location.search); a.textContent = '🐙 Entrar con GitHub'; box.style.display = ''; box.appendChild(a); }
+  }
   if (cfg.googleClientId && !account) {
     $('#gBox').style.display = '';
     if (!cfg.allowGuests) { $('#guestBox').style.display = 'none'; }
@@ -157,7 +160,7 @@ function renderChat(isNew) {
   list.scrollTop = list.scrollHeight;
 }
 function esc(t) { return String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-$('#chatBtn').onclick = () => { const c = $('#chat'); c.style.display = chatOpen() ? 'none' : ''; document.body.classList.toggle('with-chat', chatOpen()); if (chatOpen()) { unread = 0; $('#chatN').textContent = ''; renderChat(); $('#chatInput').focus(); } };
+$('#chatBtn').onclick = () => { $('#people').style.display = 'none'; const c = $('#chat'); c.style.display = chatOpen() ? 'none' : ''; document.body.classList.toggle('with-chat', chatOpen()); if (chatOpen()) { unread = 0; $('#chatN').textContent = ''; renderChat(); $('#chatInput').focus(); } };
 $('#chatClose').onclick = () => $('#chatBtn').onclick();
 $('#chatForm').onsubmit = (e) => { e.preventDefault(); const t = $('#chatInput').value.trim(); if (!t || !sock || sock.readyState !== 1) return; sock.send(JSON.stringify({ type: 'chat', text: t })); $('#chatInput').value = ''; };
 // ---- emojis
