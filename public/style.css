@@ -131,9 +131,6 @@ body.tv .captions { --fs: 52px; padding: 30px 320px 40px 40px; min-height: 100vh
 .msg audio { width: 220px; height: 32px; margin-top: 4px; display: block; }
 .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--yellow); color: #000; padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 50; }
 #q { font-variant-numeric: tabular-nums; }
-:root[data-theme="light"] { --bg: #f5f5f5; --panel: #ffffff; --panel2: #ededed; --line: #d8d8d8; --text: #111111; --muted: #555555; }
-:root[data-theme="light"] .seg { color: #111; } :root[data-theme="light"] .seg.partial { color: #7a5a00; } :root[data-theme="light"] .seg .orig { color: #444; }
-:root[data-theme="light"] .btn { color: var(--text); }
 .chat-form { flex-wrap: nowrap; } .chat-form .btn { padding: 8px 10px; flex: none; } .chat-form input { min-width: 0; }
 .emojis { gap: 3px; } .emojis button { font-size: 18px; padding: 3px 5px; }
 .btn.gh { display: inline-block; margin-top: 8px; text-decoration: none; background: #24292f; color: #fff; border-color: #24292f; }
@@ -156,3 +153,25 @@ body.tv .captions { --fs: 52px; padding: 30px 320px 40px 40px; min-height: 100vh
 @media (max-width: 700px) { .brand .logo { display: none; } }
 body.with-chat .popover { right: 356px; }
 #wName.err { border-color: var(--red); }
+
+/* ---- day theme: explicit colors everywhere (no reliance on inherited dark defaults) */
+:root[data-theme="light"] { --bg: #f4f4f6; --panel: #ffffff; --panel2: #f0f0f3; --line: #d9d9e0; --text: #15151a; --muted: #5a5a66; }
+:root[data-theme="light"] body { background: var(--bg); color: var(--text); }
+:root[data-theme="light"] header.top { background: #fff; box-shadow: 0 1px 0 var(--line), 0 6px 20px rgba(0,0,0,.05); }
+:root[data-theme="light"] button.btn, :root[data-theme="light"] a.btn, :root[data-theme="light"] select.btn, :root[data-theme="light"] input.btn { background: #fff; color: var(--text); border-color: #cfcfd8; }
+:root[data-theme="light"] button.btn:hover { border-color: var(--red); }
+:root[data-theme="light"] button.btn.primary { background: var(--red); color: #fff; border-color: var(--red); }
+:root[data-theme="light"] button.btn.on, :root[data-theme="light"] #handBtn.on { color: #000; }
+:root[data-theme="light"] input[type=time].btn { color-scheme: light; }
+:root[data-theme="light"] .badge { background: #f0f0f3; color: #3a3a44; border-color: #d9d9e0; }
+:root[data-theme="light"] .captions { background: #fff; border-radius: 14px; margin: 14px auto; box-shadow: 0 2px 12px rgba(0,0,0,.06); padding-bottom: 12vh; min-height: 50vh; }
+:root[data-theme="light"] .seg { color: #15151a; }
+:root[data-theme="light"] .seg.partial { color: #6b5300; opacity: 1; }
+:root[data-theme="light"] .seg .orig { color: #5a5a66; }
+:root[data-theme="light"] .seg.waiting { color: #8a8a96; }
+:root[data-theme="light"] .panel .row > b { color: #3a3a44; }
+:root[data-theme="light"] .missed, :root[data-theme="light"] .floor, :root[data-theme="light"] .popover, :root[data-theme="light"] .chat, :root[data-theme="light"] .card { background: #fff; color: var(--text); }
+:root[data-theme="light"] .emojis button { background: #f0f0f3; }
+:root[data-theme="light"] .modal { background: rgba(20,20,30,.55); }
+:root[data-theme="light"] .logo { border-color: #e2e2ea; }
+:root[data-theme="light"] .toast { box-shadow: 0 4px 16px rgba(0,0,0,.2); }
