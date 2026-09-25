@@ -8,13 +8,21 @@ export class Hub {
     this.status = new Map(); // sessionId -> { live, source, detectedLang, updatedAt }
   }
 
-  subscribe(sessionId, ws) {
+  subscribe(sessionId, ws, who = {}) {
     if (!this.clients.has(sessionId)) this.clients.set(sessionId, new Set());
+    ws.who = { name: String(who.name || '').slice(0, 40), role: who.role === 'speaker' ? 'speaker' : 'listener' };
     this.clients.get(sessionId).add(ws);
     // Replay finalized history so late joiners see context.
     const hist = this.history.get(sessionId) || [];
-    ws.send(JSON.stringify({ type: 'history', sessionId, segments: hist, status: this.status.get(sessionId) || null }));
-    ws.on('close', () => this.clients.get(sessionId)?.delete(ws));
+    ws.send(JSON.stringify({ type: 'history', sessionId, segments: hist, status: this.status.get(sessionId) || null, presence: this.presence(sessionId) }));
+    this.broadcast(sessionId, { type: 'presence', presence: this.presence(sessionId) });
+    ws.on('close', () => { this.clients.get(sessionId)?.delete(ws); this.broadcast(sessionId, { type: 'presence', presence: this.presence(sessionId) }); });
+  }
+
+  presence(sessionId) {
+    const all = [...(this.clients.get(sessionId) || [])];
+    const speakers = all.filter((c) => c.who?.role === 'speaker');
+    return { total: all.length, listeners: all.length - speakers.length, speakers: speakers.length, speakerNames: speakers.map((c) => c.who.name).filter(Boolean).slice(0, 5) };
   }
 
   broadcast(sessionId, msg) {

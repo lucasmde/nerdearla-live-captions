@@ -82,7 +82,7 @@ server.on('upgrade', (req, socket, head) => {
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
     const session = sessions.get(id);
-    if (kind === 'audience') { hub.subscribe(id, ws); return; }
+    if (kind === 'audience') { hub.subscribe(id, ws, { name: url.searchParams.get('name'), role: url.searchParams.get('role') }); return; }
     const source = url.searchParams.get('source') || 'ingest';
     session.log('ingest', `connected (${source})`);
     ws.on('message', (data, isBinary) => {

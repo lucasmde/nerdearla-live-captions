@@ -14,20 +14,38 @@
   <div><h1 id="title">…</h1><div class="sub" id="sub"></div></div>
   <div class="toolbar">
     <select id="langSel" class="btn" title="Idioma de los subtítulos"></select>
-    <button class="btn" id="orig" title="Mostrar también el idioma original">orig</button>
-    <button class="btn" id="minus">A−</button><button class="btn" id="plus">A+</button>
-    <button class="btn" id="clear" title="Borra lo que hay en pantalla (el historial sigue guardado)">Limpiar</button>
-    <button class="btn" id="exportBtn" title="Descargar lo mostrado entre dos horarios">Exportar</button>
+    <span class="badge" id="who" title="Conectados en esta sala"><span>👥</span><span>…</span></span>
     <span class="badge" id="st"><span class="dot"></span><span>conectando</span></span>
+    <button class="btn" id="gear" title="Ajustes">⚙</button>
   </div>
-  <div id="exportBox" class="toolbar" style="display:none;width:100%;gap:8px;padding:8px 0 2px;font-size:14px;align-items:center">
-    <span class="muted">Desde</span><input type="time" id="expFrom" class="btn" step="60">
-    <span class="muted">hasta</span><input type="time" id="expTo" class="btn" step="60">
-    <select id="expFmt" class="btn"><option value="txt">TXT con horarios</option><option value="srt">SRT</option><option value="vtt">VTT</option><option value="json">JSON</option></select>
-    <button class="btn primary" id="expGo">Descargar</button>
-    <span class="muted" style="font-size:12px">(vacío = toda la sesión; idioma: el seleccionado)</span>
+  <div id="panel" class="panel" style="display:none">
+    <div class="row"><b>Idioma</b><span class="muted">Cambia también lo que ya está en pantalla</span></div>
+    <div class="row"><b>Vista</b>
+      <button class="btn" id="orig" title="Mostrar también el idioma original">Mostrar original</button>
+      <button class="btn" id="minus">A−</button><button class="btn" id="plus">A+</button>
+      <button class="btn" id="clear" title="Borra lo que hay en pantalla (el historial sigue guardado)">Limpiar pantalla</button>
+    </div>
+    <div class="row"><b>Exportar</b>
+      <span class="muted">Desde</span><input type="time" id="expFrom" class="btn" step="60">
+      <span class="muted">hasta</span><input type="time" id="expTo" class="btn" step="60">
+      <select id="expFmt" class="btn"><option value="txt">TXT con horarios</option><option value="srt">SRT</option><option value="vtt">VTT</option><option value="json">JSON</option></select>
+      <button class="btn primary" id="expGo">Descargar</button>
+      <span class="muted" style="font-size:12px">vacío = toda la sesión, en el idioma elegido</span>
+    </div>
+    <div class="row"><b>Yo</b>
+      <input id="myName" class="btn" placeholder="Tu nombre" maxlength="40" style="min-width:160px">
+      <select id="myRole" class="btn"><option value="listener">Oyente</option><option value="speaker">Expositor</option></select>
+      <button class="btn" id="saveMe">Guardar</button>
+      <a class="btn" id="opLink" href="#" style="display:none">Consola del operador →</a>
+    </div>
   </div>
 </header>
+<div id="welcome" class="modal" style="display:none"><div class="card">
+  <h3 style="margin:0 0 6px">¿Cómo entrás a la sala?</h3>
+  <p class="muted" style="margin:0 0 10px;font-size:14px">Sin cuenta ni contraseña. Sólo para mostrar quién está conectado.</p>
+  <input id="wName" class="btn" placeholder="Tu nombre (opcional)" maxlength="40" style="width:100%;margin-bottom:8px">
+  <div class="toolbar"><button class="btn primary" id="wListener">🎧 Entrar como oyente</button><button class="btn" id="wSpeaker">🎤 Entrar como expositor</button></div>
+</div></div>
 <main class="captions" id="captions"><p class="seg waiting" id="waiting">Esperando audio de la sesión…</p></main>
 <script>
 const id = location.pathname.split('/').pop();
@@ -40,6 +58,17 @@ if (fs) document.documentElement.style.setProperty('--fs', fs + 'px');
 const $ = (s) => document.querySelector(s);
 const caps = $('#captions');
 let partialEl = null, meta = null, segs = new Map();
+let me = { name: '', role: '' };
+try { me = JSON.parse(localStorage.getItem('me') || '{}'); } catch {}
+function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#opLink').style.display = me.role === 'speaker' ? '' : 'none'; }
+if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
+$('#wListener').onclick = () => { saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
+$('#wSpeaker').onclick = () => { saveMe($('#wName').value, 'speaker'); $('#welcome').style.display = 'none'; connect(); };
+$('#saveMe').onclick = () => { saveMe($('#myName').value, $('#myRole').value); if (sock) sock.close(); };
+$('#gear').onclick = () => { const p = $('#panel'); p.style.display = p.style.display === 'none' ? '' : 'none'; $('#gear').classList.toggle('on', p.style.display !== 'none'); };
+$('#opLink').href = `/operator/${id}`;
+let sock = null;
+function presence(p) { if (!p) return; $('#who').lastElementChild.textContent = `${p.total} conectado${p.total === 1 ? '' : 's'} · ${p.listeners} oyente${p.listeners === 1 ? '' : 's'} · ${p.speakers} expositor${p.speakers === 1 ? '' : 'es'}${p.speakerNames?.length ? ' (' + p.speakerNames.join(', ') + ')' : ''}`; }
 
 fetch('/api/sessions').then(r => r.json()).then(d => {
   meta = d.sessions.find(s => s.id === id); if (!meta) return;
@@ -53,12 +82,14 @@ fetch('/api/sessions').then(r => r.json()).then(d => {
 });
 
 function connect() {
-  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/audience/${id}`);
+  const qs = new URLSearchParams({ name: me.name || '', role: me.role || 'listener' });
+  const ws = sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/audience/${id}?${qs}`);
   ws.onopen = () => setBadge('live', 'conectado');
-  ws.onclose = () => { setBadge('off', 'reconectando'); setTimeout(connect, 1500); };
+  ws.onclose = () => { setBadge('off', 'reconectando'); setTimeout(() => { if (sock === ws) connect(); }, 1500); };
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
-    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); }
+    if (m.type === 'history') { segs = new Map(m.segments.map(s => [s.id, s])); rerender(); if (m.status) status(m.status); presence(m.presence); }
+    else if (m.type === 'presence') presence(m.presence);
     else if (m.type === 'final') { if (partialEl) { partialEl.remove(); partialEl = null; } segs.set(m.segment.id, m.segment); trim(); rerender(); }
     else if (m.type === 'translation') { const s = segs.get(m.segId); if (s) { s.tr = s.tr || {}; s.tr[m.lang] = m.text; rerender(); } }
     else if (m.type === 'partial') { renderPartial(m); }
@@ -100,7 +131,6 @@ function renderPartial(m) {
 }
 function scroll() { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }
 $('#clear').onclick = () => { segs.clear(); if (partialEl) { partialEl.remove(); partialEl = null; } rerender(); };
-$('#exportBtn').onclick = () => { const b = $('#exportBox'); b.style.display = b.style.display === 'none' ? 'flex' : 'none'; };
 $('#expGo').onclick = () => {
   const q = new URLSearchParams({ lang }); if ($('#expFrom').value) q.set('from', $('#expFrom').value); if ($('#expTo').value) q.set('to', $('#expTo').value);
   const a = document.createElement('a'); a.href = `/api/sessions/${id}/transcript.${$('#expFmt').value}?${q}`; a.download = `${id}-${lang}.${$('#expFmt').value}`; document.body.appendChild(a); a.click(); a.remove();
@@ -109,7 +139,8 @@ $('#plus').onclick = () => setFs(+2); $('#minus').onclick = () => setFs(-2);
 function setFs(d) { const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs')); const v = Math.max(16, cur + d * 2); document.documentElement.style.setProperty('--fs', v + 'px'); localStorage.setItem('fs', v); }
 $('#orig').onclick = () => { showOrig = !showOrig; $('#orig').classList.toggle('on', showOrig); rerender(); };
 if (showOrig) $('#orig').classList.add('on');
-connect();
+saveMe(me.name, me.role || (document.body.classList.contains('overlay') ? 'listener' : me.role));
+if (me.role) connect();
 </script>
 </body>
 </html>
