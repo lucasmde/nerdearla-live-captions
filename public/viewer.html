@@ -36,7 +36,7 @@
       <input id="myName" class="btn" placeholder="Tu nombre" maxlength="40" style="min-width:160px">
       <select id="myRole" class="btn"><option value="listener">Oyente</option><option value="speaker">Expositor</option></select>
       <button class="btn" id="saveMe">Guardar</button>
-      <a class="btn" id="opLink" href="#" style="display:none">Consola avanzada →</a>
+
     </div>
     <div class="row" id="txRow" style="display:none"><b>Transmitir</b>
       <select id="dev" class="btn" style="min-width:200px"></select>
@@ -71,13 +71,12 @@ const caps = $('#captions');
 let partialEl = null, meta = null, segs = new Map();
 let me = { name: '', role: '' };
 try { me = JSON.parse(localStorage.getItem('me') || '{}'); } catch {}
-function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#opLink').style.display = me.role === 'speaker' ? '' : 'none'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); }
+function saveMe(name, role) { me = { name: (name || '').trim(), role }; localStorage.setItem('me', JSON.stringify(me)); $('#myName').value = me.name; $('#myRole').value = me.role || 'listener'; $('#txRow').style.display = me.role === 'speaker' ? '' : 'none'; if (me.role === 'speaker') listDevices(); }
 if (!me.role && !document.body.classList.contains('overlay')) $('#welcome').style.display = 'flex';
 $('#wListener').onclick = () => { saveMe($('#wName').value, 'listener'); $('#welcome').style.display = 'none'; connect(); };
 $('#wSpeaker').onclick = () => { saveMe($('#wName').value, 'speaker'); $('#welcome').style.display = 'none'; connect(); };
 $('#saveMe').onclick = () => { saveMe($('#myName').value, $('#myRole').value); if (sock) sock.close(); };
 $('#gear').onclick = () => { const p = $('#panel'); p.style.display = p.style.display === 'none' ? '' : 'none'; $('#gear').classList.toggle('on', p.style.display !== 'none'); };
-$('#opLink').href = `/operator/${id}`;
 let sock = null;
 function presence(p) { if (!p) return; $('#who').lastElementChild.textContent = `${p.total} conectado${p.total === 1 ? '' : 's'} · ${p.listeners} oyente${p.listeners === 1 ? '' : 's'} · ${p.speakers} expositor${p.speakers === 1 ? '' : 'es'}${p.speakerNames?.length ? ' (' + p.speakerNames.join(', ') + ')' : ''}`; }
 
