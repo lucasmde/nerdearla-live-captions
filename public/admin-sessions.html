@@ -21,7 +21,8 @@
   .msg { font-size: 13px; padding: 8px 10px; border-radius: 8px; margin: 8px 0; display: none; }
   .msg.err { background: #2a1214; border: 1px solid #5b2b33; color: #ffb4bb; display: block; }
   .msg.ok { background: #0f2a1e; border: 1px solid #1f5b3b; color: #9be8bd; display: block; }
-  .gate { max-width: 460px; margin: 60px auto; text-align: center; }
+  .gate { margin: 70px auto; text-align: center; }
+  .gate .acct { justify-content: center; }
 </style>
 </head>
 <body>
@@ -31,9 +32,14 @@
   <div class="toolbar"><span class="muted" id="whoami" style="font-size:13px"></span><a class="btn" href="/admin">← Panel de producción</a><button class="btn" id="logoutBtn" style="display:none">Cerrar sesión</button></div>
 </header>
 <div class="wrap" id="app">
-  <div class="card gate" id="gate" style="display:none">
-    <p id="gateMsg" class="muted"></p>
-    <div id="gBtn"></div>
+  <div class="card welcome gate" id="gate" style="display:none">
+    <div class="logo big"><span class="l1">LIVE</span><span class="l2">CAP</span><span class="l3">TIONS</span></div>
+    <h3 style="margin:10px 0 2px">Panel de administración</h3>
+    <p id="gateMsg" class="muted" style="margin:0 0 16px;font-size:14px"></p>
+    <div id="gBox" class="acct">
+      <div id="gBtn"></div>
+    </div>
+    <p class="muted" style="margin:14px 0 0;font-size:12px">¿No sos vos? <a href="#" id="switchAcct" style="color:var(--teal)">Usar otra cuenta de Google</a></p>
   </div>
   <div id="main" style="display:none">
     <div class="msg" id="scopeNote" style="display:none;background:#1a2a3a;border:1px solid #2c4a63;color:#a9d4ff">Estás viendo y podés administrar solo la o las salas que creaste con esta cuenta — es un espacio de prueba para ver cómo se arma un evento. Las salas del evento real las administra el equipo organizador.</div>
@@ -321,18 +327,32 @@ async function boot() {
   if (cfg.googleClientId) {
     const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
     s.onload = () => {
-      google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: async (resp) => {
+      // auto_select:false -> nunca entra solo: siempre exige el click, aunque el navegador
+      // ya tenga una sesión de Google activa (antes quedaba "enganchado" a esa cuenta).
+      google.accounts.id.initialize({ client_id: cfg.googleClientId, auto_select: false, callback: async (resp) => {
         await fetch('/api/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
         location.reload();
       } });
+      // Al target correcto (#gBtn, no su contenedor #gBox): GIS reemplaza el contenido del
+      // nodo que se le pasa, así que si el botón de GitHub se agrega ahí lo borra.
       google.accounts.id.renderButton($('#gBtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: 'es' });
     };
     document.head.appendChild(s);
+    $('#switchAcct').onclick = (e) => {
+      e.preventDefault();
+      try { google.accounts.id.disableAutoSelect(); } catch {}
+      // Fuerza al navegador a olvidar la cuenta elegida y a mostrar el selector de nuevo.
+      const url = new URL('https://accounts.google.com/Logout'); url.searchParams.set('continue', location.href);
+      window.open(url, '_blank', 'noopener');
+    };
+  } else {
+    $('#switchAcct').closest('p').style.display = 'none';
   }
   if (cfg.github) {
-    const a = document.createElement('a'); a.className = 'btn'; a.style.marginTop = '8px'; a.style.display = 'inline-block';
-    a.href = `/api/auth/github?back=${encodeURIComponent(location.pathname)}`; a.textContent = 'Entrar con GitHub';
-    $('#gBtn').appendChild(a);
+    const a = document.createElement('a'); a.className = 'btn gh';
+    a.href = `/api/auth/github?back=${encodeURIComponent(location.pathname)}`;
+    a.innerHTML = '<span class="ghmark" aria-hidden="true"></span><span>Entrar con GitHub</span>';
+    $('#gBox').appendChild(a);
   }
 }
 boot();
