@@ -66,11 +66,19 @@ async function load() {
     const el = document.createElement('div'); el.className = 'card'; if (s.color) el.style.setProperty('--c', s.color);
     const ag = s.agenda || {}; const talk = (t, label) => t ? `<div class="talk"><div class="when">${label} · ${t.start}–${t.end}</div><div class="ttl">${esc(t.title)}</div><div class="spk">${esc(t.speaker)}${t.lang ? ` · ${t.lang.toUpperCase()}` : ''}</div></div>` : '';
     el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
-        <h3><span class="cdot"></span>${esc(s.name)}</h3><span class="badge ${live ? 'live' : 'off'}"><span class="dot"></span>${live ? 'en vivo' : 'sin audio'}</span></div>
-      <div class="room">${esc(s.room || '')} · ${s.viewers} viendo${s.ownerName ? ` · creado por ${esc(s.ownerName)}` : ''}</div>
+        <h3><span class="cdot"></span>${esc(s.name)}</h3><span class="rbadge live${live ? '' : ' off'}"><span class="dot"></span>${live ? 'EN VIVO' : 'SIN AUDIO'}</span></div>
+      <div class="room">${esc(s.room || '')}${s.ownerName ? ` · creado por ${esc(s.ownerName)}` : ''}</div>
       ${talk(ag.now, 'AHORA') || (ag.next ? '' : (s.talks ? '<div class="talk"><div class="when">SIN CHARLAS AHORA</div></div>' : ''))}${talk(ag.next, 'SIGUE')}
-      <div class="langs">${s.targetLangs.map(l => `<a class="pill" href="/s/${s.id}?lang=${l}">${esc(d.langLabels[l] || l)}</a>`).join('')}</div>
-      <div class="langs" style="margin-top:8px"><a class="pill" href="/s/${s.id}?lang=es&tv=1" title="Pantalla de sala con QR">📺 pantalla</a><a class="pill" href="/s/${s.id}/qr?lang=es" target="_blank" rel="noopener" title="Tarjeta de la sala: QR grande, charla actual y agenda del día, para proyectar o imprimir">▦ QR</a></div>`;
+      <div class="roomBadges">
+        <span class="rbadge lang">Audio: ${esc((s.sourceLang || 'auto').toUpperCase())}</span>
+        <span class="rbadge sub">Subtítulos: ${esc(s.targetLangs.join(', ')).toUpperCase()}</span>
+        <span class="rbadge engine">👤 ${s.viewers} audiencia</span>
+      </div>
+      <div class="langs">${s.targetLangs.map((l, i) => `<a class="pill${i === 0 ? ' active' : ''}" href="/s/${s.id}?lang=${l}">${esc(d.langLabels[l] || l)}</a>`).join('')}</div>
+      <div class="footerlinks" style="border-top:none;margin-top:2px;padding-top:0">
+        <a class="btn" href="/s/${s.id}?lang=es&tv=1" title="Pantalla de sala con QR">📺 Pantalla TV</a>
+        <a class="btn" href="/s/${s.id}/qr?lang=es" target="_blank" rel="noopener" title="Tarjeta de la sala: QR grande, charla actual y agenda del día, para proyectar o imprimir">▦ QR Móvil</a>
+      </div>`;
     grid.appendChild(el);
   }
 }

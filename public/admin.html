@@ -8,11 +8,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/style.css">
 <style>
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
 .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
 .small { font-size: 12px; color: var(--muted); }
+.pcard { --c: var(--teal); }
+.pcard .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.pcard .head b { font-size: 20px; }
+.pcard .head .room { font-size: 13px; }
+.pcard .lastsub { font-size: 12px; color: var(--muted); }
+.pcard .lastsub b { color: var(--text); font-weight: 500; }
+.statgrid .stat.bad b { color: var(--bad); }
+.statgrid .stat.warn b { color: var(--warn); }
 </style>
 </head>
 <body>
@@ -22,36 +27,51 @@ th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: upp
   <div class="toolbar"><a class="btn" href="/admin/sessions">Salas y agenda</a><span class="badge" id="engine"><span class="dot"></span><span>…</span></span></div>
 </header>
 <div class="wrap">
-  <div class="card" style="padding:0;overflow:auto">
-    <table>
-      <thead><tr><th>Sesión</th><th>Audio</th><th>Motor</th><th>Último subtítulo</th><th>Traducción</th><th>Audiencia</th><th>Segmentos</th><th>Errores</th><th>Links</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
+  <div class="grid" id="cards"></div>
   <p class="small" style="margin-top:14px">"Audio" = hace cuánto llegó el último paquete de audio del escenario. "Último subtítulo" = hace cuánto se emitió el último parcial / final. "Traducción" = tiempo promedio de traducción por segmento. "SIN SEÑAL" = llega audio pero por debajo de −50 dBFS durante 20 s (cable/consola muteados). Métricas Prometheus en <a href="/metrics">/metrics</a>.</p>
 </div>
 <script>
 const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const ago = (t) => t ? `${((Date.now() - t) / 1000).toFixed(1)} s` : '—';
-const cls = (t, warn, bad) => !t ? 'small' : (Date.now() - t) > bad ? 'bad' : (Date.now() - t) > warn ? 'warn' : 'ok';
+const cls = (t, warn, bad) => !t ? '' : (Date.now() - t) > bad ? 'bad' : (Date.now() - t) > warn ? 'warn' : '';
+function sessionCard(s) {
+  const m = s.metrics || {}; const st = s.status || {};
+  const live = st.live && s.source;
+  const errCount = (m.trErrors || 0) + (m.engineErrors || 0);
+  return `
+  <div class="card pcard" style="--c:${s.color || 'var(--teal)'}">
+    <div class="head">
+      <b class="display"><span class="cdot" style="background:${s.color || 'var(--teal)'}"></span>${esc(s.name)}</b>
+      <span class="muted room">${esc(s.room || '')}</span>
+    </div>
+    <div class="roomBadges">
+      <span class="rbadge lang">${esc(s.sourceLang)} → ${esc(s.targetLangs.join(', ')).toUpperCase()}</span>
+      <span class="rbadge engine">motor: ${esc(st.engine || d_engine)}</span>
+      <span class="rbadge live${live ? '' : ' off'}">${live ? `<span class="dot"></span> EN VIVO · ${esc(s.source)}` : '<span class="dot"></span> sin fuente'}</span>
+      ${m.deadAir ? '<span class="rbadge off">⚠ SIN SEÑAL</span>' : ''}
+    </div>
+    <div class="statgrid">
+      <div class="stat"><b>${s.viewers}</b><span>Audiencia</span></div>
+      <div class="stat"><b>${s.segments}</b><span>Segmentos</span></div>
+      <div class="stat"><b>${m.trAvgMs != null ? m.trAvgMs : '–'}</b><span>Traduc. (ms)</span></div>
+      <div class="stat ${errCount ? 'bad' : ''}"><b>${errCount}</b><span>Errores</span></div>
+    </div>
+    <div class="lastsub">Audio: ${live ? `hace ${ago(m.lastAudioAt)}` : 'sin fuente'} · último parcial hace <b class="${cls(m.lastPartialAt,5000,15000)}">${ago(m.lastPartialAt)}</b> · final hace <b>${ago(m.lastFinalAt)}</b>${st.error ? `<div class="bad">${esc(st.error)}</div>` : ''}</div>
+    <div class="footerlinks">
+      <a class="btn primary" href="/operator/${s.id}" target="_blank">🎙️ Operador</a>
+      <a class="btn" href="/s/${s.id}?lang=es" target="_blank">👀 Audiencia</a>
+      <a class="btn" href="/s/${s.id}?lang=es&tv=1" target="_blank">📺 Pantalla + QR</a>
+      <a class="btn" href="/api/sessions/${s.id}/qr.svg" target="_blank">QR</a>
+      <a class="btn" href="/api/sessions/${s.id}/transcript.srt?lang=es" target="_blank">⬇️ SRT</a>
+    </div>
+  </div>`;
+}
+let d_engine = '';
 async function tick() {
   const d = await (await fetch('/api/sessions')).json();
+  d_engine = d.engine;
   document.getElementById('engine').innerHTML = `<span class="dot"></span>motor: ${d.engine}`;
-  document.getElementById('rows').innerHTML = d.sessions.map(s => {
-    const m = s.metrics || {}; const st = s.status || {};
-    const live = st.live && s.source;
-    return `<tr>
-      <td><b>${esc(s.name)}</b><div class="small">${esc(s.id)} · ${esc(s.room || '')} · ${esc(s.sourceLang)} → ${esc(s.targetLangs.join(', '))}</div></td>
-      <td class="${live ? cls(m.lastAudioAt, 3000, 8000) : 'bad'}">${s.source ? `${s.source} · ${ago(m.lastAudioAt)}` : 'sin fuente'}<div class="small">${m.audioSeconds || 0} s recibidos · ${m.audioDb != null && s.source ? m.audioDb + ' dBFS' : ''}${m.deadAir ? ' · <b style="color:#FFBA00">SIN SEÑAL</b>' : ''}</div></td>
-      <td class="${st.live ? 'ok' : 'small'}">${st.live ? 'conectado' : 'inactivo'}<div class="small">${st.engine || ''}</div></td>
-      <td class="${live ? cls(m.lastPartialAt, 5000, 15000) : 'small'}">parcial ${ago(m.lastPartialAt)}<div class="small">final ${ago(m.lastFinalAt)}</div></td>
-      <td>${m.trAvgMs != null ? m.trAvgMs + ' ms' : '—'}<div class="small">${m.trCount || 0} ok</div></td>
-      <td>${s.viewers}</td>
-      <td>${s.segments}</td>
-      <td class="${(m.trErrors || m.engineErrors) ? 'bad' : 'small'}">${(m.trErrors || 0) + (m.engineErrors || 0)}${st.error ? `<div class="small">${esc(st.error)}</div>` : ''}</td>
-      <td class="small"><a href="/operator/${s.id}">operador</a> · <a href="/s/${s.id}?lang=es">audiencia</a> · <a href="/api/sessions/${s.id}/transcript.srt?lang=es">SRT</a> · <a href="/s/${s.id}?lang=es&tv=1">pantalla+QR</a> · <a href="/api/sessions/${s.id}/qr.svg">QR</a> · <a href="/api/sessions/${s.id}/now.txt?lang=es">now.txt</a></td>
-    </tr>`;
-  }).join('');
+  document.getElementById('cards').innerHTML = d.sessions.map(sessionCard).join('');
 }
 tick(); setInterval(tick, 2000);
 </script>
