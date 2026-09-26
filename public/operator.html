@@ -178,6 +178,9 @@ async function checkSpeakerAccess() {
   } else {
     $('#sgMsg').textContent = `Sesión iniciada como ${meInfo.email}. Pedile al organizador el código de orador de esta sala y ponelo acá:`;
     $('#sgLogin').innerHTML = '';
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'No soy yo, cambiar de cuenta';
+    b.onclick = async () => { try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {} try { google?.accounts?.id?.disableAutoSelect(); } catch {} checkSpeakerAccess(); };
+    $('#sgLogin').appendChild(b);
     $('#sgCodeRow').style.display = 'flex';
   }
 }

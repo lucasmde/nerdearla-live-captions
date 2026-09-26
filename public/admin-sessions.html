@@ -28,7 +28,7 @@
 <div class="brandbar"></div>
 <header class="top">
   <div><h1>Salas y agenda</h1><div class="sub">Crear salas, cargar charlas (título, orador, horario) y la fuente de audio prevista</div></div>
-  <div class="toolbar"><a class="btn" href="/admin">← Panel de producción</a></div>
+  <div class="toolbar"><span class="muted" id="whoami" style="font-size:13px"></span><a class="btn" href="/admin">← Panel de producción</a><button class="btn" id="logoutBtn" style="display:none">Cerrar sesión</button></div>
 </header>
 <div class="wrap" id="app">
   <div class="card gate" id="gate" style="display:none">
@@ -214,10 +214,24 @@ $('#createBtn').onclick = async () => {
   } catch (e) { flash(msg, false, e.message); }
 };
 
+$('#logoutBtn').onclick = async () => {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch {}
+  // Also tell Google Identity Services to forget the auto-selected account, si no
+  // la próxima vez vuelve a entrar solo con la misma cuenta sin preguntar.
+  try { google?.accounts?.id?.disableAutoSelect(); } catch {}
+  location.reload();
+};
+
 async function boot() {
   me = await (await fetch('/api/me')).json();
   const cfg = await (await fetch('/api/config')).json();
-  if (me && me.isAdmin) { $('#main').style.display = 'block'; load(); return; }
+  if (me && me.isAdmin) {
+    $('#main').style.display = 'block';
+    $('#whoami').textContent = me.email;
+    $('#logoutBtn').style.display = '';
+    load();
+    return;
+  }
   $('#gate').style.display = 'block';
   if (!me) {
     $('#gateMsg').textContent = 'Iniciá sesión con Google para acceder al panel de salas.';
@@ -233,7 +247,9 @@ async function boot() {
       document.head.appendChild(s);
     }
   } else {
-    $('#gateMsg').textContent = `Tu cuenta (${me.email}) inició sesión pero no tiene permisos de administración. Pedile a quien administra el servidor que agregue tu mail a ADMIN_EMAILS.`;
+    $('#gateMsg').textContent = `Tu cuenta (${me.email}) inició sesión pero no tiene permisos de administración. Pedile a quien administra el servidor que agregue tu mail a ADMIN_EMAILS, o cerrá sesión para probar con otra cuenta.`;
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Cerrar sesión / cambiar de cuenta'; b.onclick = $('#logoutBtn').onclick;
+    $('#gBtn').appendChild(b);
   }
 }
 boot();
