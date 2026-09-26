@@ -33,6 +33,14 @@
    ],
    "agenda": [
     {
+     "day": "",
+     "start": "18:00",
+     "end": "18:30",
+     "title": "Charla de cierre: qué sigue para Live Captions",
+     "speaker": "Lucas Destefanis",
+     "lang": "es"
+    },
+    {
      "day": "2026-09-25",
      "start": "10:10",
      "end": "10:50",
@@ -135,7 +143,126 @@
      "title": "El futuro para los devs",
      "speaker": "Miguel Ángel Durán García",
      "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "10:30",
+     "end": "11:10",
+     "title": "Tor: giving privacy decisions back to users",
+     "speaker": "Roger Dingledine",
+     "lang": "en"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "11:10",
+     "end": "11:50",
+     "title": "Cerebro en construcción: ¿cómo deciden las células en qué convertirse?",
+     "speaker": "Daniela Di Bella",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "11:50",
+     "end": "12:30",
+     "title": "Los bots ganan... hasta que alguien se muere",
+     "speaker": "Esperanza Berhongaray Kenny",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "12:30",
+     "end": "13:10",
+     "title": "¿Dónde están escondidos los microplásticos y cómo sacarlos de tu rutina?",
+     "speaker": "Carolina Martinez, Jimena Prieto",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "13:55",
+     "end": "14:35",
+     "title": "Prehistoria de las fake news: engaños en la ciencia, la literatura y la inteligencia artificial",
+     "speaker": "Néstor Molina, Carina Elena Moreira",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "14:35",
+     "end": "15:15",
+     "title": "De experimento datero a tapa del diario: Breve historia del ‘Cuanto Deben’",
+     "speaker": "Andrés Snitcofsky, Sebastián Waisbrot",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "15:15",
+     "end": "15:55",
+     "title": "Análisis de Datos a 350 km/h: big data y telemetría en la Fórmula 1",
+     "speaker": "Lucas Corsino",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "15:55",
+     "end": "16:35",
+     "title": "¿Quién está volando realmente? Lo que la automatización hace (y no hace) en la cabina",
+     "speaker": "Enrique Lippi",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "16:35",
+     "end": "17:15",
+     "title": "Tu LLM no programa",
+     "speaker": "Hernán Wilkinson",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "17:15",
+     "end": "17:55",
+     "title": "Clima Espacial y AgroTech: Sol, satélites y agricultura",
+     "speaker": "Laura Morales",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "18:05",
+     "end": "18:45",
+     "title": "Explorando nuevas fronteras cósmicas con el Telescopio Espacial James Webb",
+     "speaker": "Macarena Garcia Marin",
+     "lang": "es"
     }
+   ],
+   "vocabulary": [
+    "Kent C. Dodds",
+    "David Nalley",
+    "Utkarsh Sengar",
+    "Thor Schaeff",
+    "Erick Wendel",
+    "Nelly Andrade",
+    "Ana Cunha",
+    "Tomás Ruiz",
+    "Frédéric Harper",
+    "Jean-Baptiste Kempf",
+    "Juan Pablo Flores",
+    "Omar Sanseviero",
+    "D. Richard Hipp",
+    "Miguel Ángel Durán García",
+    "Lucas Destefanis",
+    "Roger Dingledine",
+    "Daniela Di Bella",
+    "Esperanza Berhongaray Kenny",
+    "Carolina Martinez",
+    "Jimena Prieto",
+    "Néstor Molina",
+    "Carina Elena Moreira",
+    "Andrés Snitcofsky",
+    "Sebastián Waisbrot",
+    "Lucas Corsino",
+    "Enrique Lippi",
+    "Hernán Wilkinson",
+    "Laura Morales",
+    "Macarena Garcia Marin"
    ]
   },
   {
@@ -236,7 +363,112 @@
      "title": "Evolución de la Open Source AI: Open Weights, Open Data y licencias",
      "speaker": "Diego Fisch",
      "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "11:15",
+     "end": "11:55",
+     "title": "Entrevistando a Lazarus: hablando con agentes de Corea del Norte",
+     "speaker": "Mauro Eldritch, Sofía Grimaldo",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "11:55",
+     "end": "12:35",
+     "title": "Kill chain humano: anatomía técnica del grooming en Roblox",
+     "speaker": "Candela Castaldo",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "12:35",
+     "end": "13:15",
+     "title": "Del Gradiente al RCE: Explotando la cadena de suministro de una IA en vivo",
+     "speaker": "Francisco Gutierrez",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "14:00",
+     "end": "14:40",
+     "title": "Skynet: un Framework para Prompt Injection",
+     "speaker": "Emmanuel Di Battista, Yago Méndez",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "14:40",
+     "end": "15:20",
+     "title": "Threat Modeling para apps con IA: Aplicar OWASP LLM en 4 pasos",
+     "speaker": "Germán Ariel Borda",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "15:20",
+     "end": "16:00",
+     "title": "NextGen Honeypots: construyendo un sistema de detección de ataques con Machine Learning",
+     "speaker": "Leandro Estrella",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "16:00",
+     "end": "16:40",
+     "title": "Cuando mi Agente Perdió la Paciencia: Seguridad en IA",
+     "speaker": "Pablo Fredrikson",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "16:40",
+     "end": "17:20",
+     "title": "Dispositivos maker para detectar drones (y reaccionar)",
+     "speaker": "Roni Bandini",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "17:20",
+     "end": "18:00",
+     "title": "Tecnología para las abejas - colmenas sensorizadas",
+     "speaker": "Pablo Vannini",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "18:00",
+     "end": "18:40",
+     "title": "Haciendo hardware en la era del software",
+     "speaker": "Juan Tinazzo",
+     "lang": "es"
     }
+   ],
+   "vocabulary": [
+    "Daniel Krook",
+    "Peter Zaitsev",
+    "Steven J. Vaughan-Nichols",
+    "Valeska Kraus",
+    "Daniel Minor",
+    "Federico Bongiovanni",
+    "Fernando Victor Filippetti",
+    "Stormy Peters",
+    "Robin Bender Ginn",
+    "Bruce Momjian",
+    "Diego Fisch",
+    "Mauro Eldritch",
+    "Sofía Grimaldo",
+    "Candela Castaldo",
+    "Francisco Gutierrez",
+    "Emmanuel Di Battista",
+    "Yago Méndez",
+    "Germán Ariel Borda",
+    "Leandro Estrella",
+    "Pablo Fredrikson",
+    "Roni Bandini",
+    "Pablo Vannini",
+    "Juan Tinazzo"
    ]
   },
   {
@@ -329,7 +561,64 @@
      "title": "Secretos y Kubernetes: lo que tus pods no deberían contar",
      "speaker": "Lucas Mariani",
      "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "10:30",
+     "end": "11:20",
+     "title": "Laboratorio Musical: ingenieros musicales por un día I",
+     "speaker": "Adriana Eileen Paz Rivas",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "11:30",
+     "end": "12:20",
+     "title": "Laboratorio Musical: ingenieros musicales por un día II",
+     "speaker": "Adriana Eileen Paz Rivas",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "12:30",
+     "end": "13:20",
+     "title": "Laboratorio Musical: ingenieros musicales por un día III",
+     "speaker": "Adriana Eileen Paz Rivas",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "15:40",
+     "end": "16:40",
+     "title": "Jugando con Arduino 2026",
+     "speaker": "Mariana Gigena",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "16:50",
+     "end": "17:50",
+     "title": "Arma tu Robot de Batalla",
+     "speaker": "Chalin Tech",
+     "lang": "es"
     }
+   ],
+   "vocabulary": [
+    "Daniel Guzmán Burgos",
+    "Silvia Lovato",
+    "Madelyn Olson",
+    "Fer Gleiser",
+    "Ronal Celaya",
+    "Andres Francisco Seivane",
+    "René Cannaò",
+    "Tiago Caragliano",
+    "Lucas Freije",
+    "Leon Perez",
+    "Federico Rosenhain",
+    "Lucas Mariani",
+    "Adriana Eileen Paz Rivas",
+    "Mariana Gigena",
+    "Chalin Tech"
    ]
   },
   {
@@ -349,6 +638,68 @@
      "end": "11:30",
      "title": "Tips para trabajar en tech",
      "speaker": "Reclutando Latinoamérica",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "12:30",
+     "end": "13:30",
+     "title": "Programa tu Pikachu Robot",
+     "speaker": "Chalin Tech",
+     "lang": "es"
+    }
+   ],
+   "vocabulary": [
+    "Reclutando Latinoamérica",
+    "Chalin Tech"
+   ]
+  },
+  {
+   "id": "container-rojo",
+   "name": "Container rojo",
+   "room": "Patio del Konex",
+   "color": "#E8590C",
+   "sourceLang": "auto",
+   "targetLangs": [
+    "es",
+    "en"
+   ],
+   "agenda": [
+    {
+     "day": "2026-09-26",
+     "start": "11:00",
+     "end": "12:15",
+     "title": "Code & Go: Misión Rayuela",
+     "speaker": "TecnoKids Latinoamérica",
+     "lang": "es"
+    },
+    {
+     "day": "2026-09-26",
+     "start": "12:15",
+     "end": "13:30",
+     "title": "Micro:bit: Piedra, Papel y Tijera",
+     "speaker": "TecnoKids Latinoamérica",
+     "lang": "es"
+    }
+   ]
+  },
+  {
+   "id": "konex-en-vivo",
+   "name": "Konex en vivo",
+   "room": "Konex · Patio principal",
+   "color": "#22C55E",
+   "sourceLang": "auto",
+   "targetLangs": [
+    "es",
+    "en"
+   ],
+   "agenda": [
+    {
+     "day": "2026-09-26",
+     "start": "13:30",
+     "end": "14:45",
+     "title": "Lightning talks de comunidades!",
+     "speaker": "Abi Rakower",
      "lang": "es"
     }
    ]

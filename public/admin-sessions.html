@@ -117,16 +117,26 @@ function roomCard(room) {
       <td><button class="btn" data-save-talk="${i}" title="Guardar">💾</button> <button class="btn danger" data-del-talk="${i}" title="Borrar">✕</button></td>
     </tr>`).join('');
   return `
-  <div class="card" data-room="${room.id}">
+  <div class="card" data-room="${room.id}" style="--c:${room.color || 'var(--teal)'}">
     <div class="roomHead">
-      <b class="display" style="font-size:18px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${room.color || 'var(--teal)'};margin-right:8px"></span>${esc(room.name)} <span class="muted" style="font-size:13px;font-weight:400">(${room.id})</span></b>${room.ownerEmail ? `<span class="muted" style="font-size:12px;margin-left:8px">🧪 sala de prueba de ${esc(room.ownerEmail)}</span>` : ''}
+      <b class="display" style="font-size:18px"><span class="cdot" style="background:${room.color || 'var(--teal)'}"></span>${esc(room.name)} <span class="muted" style="font-size:13px;font-weight:400">(${room.id})</span></b>${room.ownerEmail ? `<span class="muted" style="font-size:12px;margin-left:8px">🧪 sala de prueba de ${esc(room.ownerEmail)}</span>` : ''}
       <div class="toolbar">
-        <a class="btn" href="/operator/${room.id}" target="_blank">operador</a>
-        <a class="btn" href="/s/${room.id}?lang=es" target="_blank">audiencia</a>
+        <button class="btn primary" onclick="window.open('/operator/${room.id}','_blank')">🎙️ Hablar ahora</button>
         <button class="btn" data-gen-code="${room.id}">🔑 Código de orador</button>
-        <button class="btn danger" data-del-room="${room.id}">Borrar sala</button>
       </div>
     </div>
+    <div class="roomBadges">
+      <span class="rbadge lang">Orador: ${esc((room.sourceLang || 'auto').toUpperCase())}</span>
+      <span class="rbadge sub">Subtítulos: ${esc(room.targetLangs.join(', ').toUpperCase())}</span>
+      <span class="rbadge live off" data-live-badge>… cargando</span>
+    </div>
+    <div class="statgrid" data-stats>
+      <div class="stat"><b data-s-viewers>–</b><span>Audiencia</span></div>
+      <div class="stat"><b data-s-segments>–</b><span>Segmentos</span></div>
+      <div class="stat"><b data-s-tr>–</b><span>Traduc. (ms)</span></div>
+      <div class="stat"><b data-s-audio>–</b><span>Audio (s)</span></div>
+    </div>
+    <div class="nowNext" data-nownext></div>
     <div id="msg-${room.id}" class="msg"></div>
     <div class="codeBox muted" style="font-size:13px;margin:4px 0 10px;display:none"></div>
     <div class="roomForm" style="margin-top:10px">
@@ -157,7 +167,38 @@ function roomCard(room) {
         </tr>
       </tbody>
     </table>
+    <div class="footerlinks">
+      <a class="btn" href="/s/${room.id}?lang=es" target="_blank">👀 Audiencia</a>
+      <a class="btn" href="/s/${room.id}?lang=es&tv=1" target="_blank">📺 Pantalla + QR</a>
+      <a class="btn" href="/api/sessions/${room.id}/qr.svg" target="_blank">QR</a>
+      <a class="btn" href="/api/sessions/${room.id}/transcript.srt?lang=es" target="_blank">⬇️ SRT</a>
+      <button class="btn danger" data-del-room="${room.id}" style="margin-left:auto">Borrar sala</button>
+    </div>
   </div>`;
+}
+
+function renderLive(card, info) {
+  const badge = card.querySelector('[data-live-badge]');
+  const live = !!(info?.status?.live && info?.source);
+  badge.className = 'rbadge live' + (live ? '' : ' off');
+  badge.innerHTML = live ? `<span class="dot"></span> EN VIVO · ${esc(info.source)}` : '<span class="dot"></span> sin transmitir';
+  const m = info?.metrics || {};
+  card.querySelector('[data-s-viewers]').textContent = info?.viewers ?? 0;
+  card.querySelector('[data-s-segments]').textContent = info?.segments ?? 0;
+  card.querySelector('[data-s-tr]').textContent = m.trAvgMs != null ? m.trAvgMs : '–';
+  card.querySelector('[data-s-audio]').textContent = m.audioSeconds ?? 0;
+  const nn = card.querySelector('[data-nownext]');
+  const a = info?.agenda;
+  const chip = (t, cls, label) => t ? `<div class="talk ${cls}"><div class="when">${label}${t.start ? ' · ' + esc(t.start) : ''}</div><div class="ttl">${esc(t.title)}</div><div class="spk">${esc(t.speaker)}</div></div>` : '';
+  nn.innerHTML = (a?.now || a?.next) ? chip(a.now, 'now', 'Ahora') + chip(a.next, 'next', 'Sigue') : '<p class="muted" style="font-size:12px;margin:0">Sin charla en curso ni próxima según la agenda de hoy.</p>';
+}
+
+async function tickLive() {
+  try {
+    const d = await api('GET', '/api/sessions');
+    const byId = Object.fromEntries(d.sessions.map((s) => [s.id, s]));
+    document.querySelectorAll('#rooms [data-room]').forEach((card) => renderLive(card, byId[card.dataset.room]));
+  } catch {}
 }
 
 function showCode(box, roomId, d) {
@@ -235,7 +276,9 @@ async function load() {
   wrap.innerHTML = d.rooms.map(roomCard).join('');
   d.rooms.forEach((room) => bindRoomCard(wrap.querySelector(`[data-room="${room.id}"]`), room));
   tickCountdowns();
+  tickLive();
 }
+setInterval(tickLive, 4000);
 
 $('#createBtn').onclick = async () => {
   const msg = $('#createMsg');
