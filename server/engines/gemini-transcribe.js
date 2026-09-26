@@ -41,6 +41,15 @@ export class GeminiTranscriber {
         ...(sourceLang && sourceLang !== 'auto' ? { languageCodes: [sourceLang] } : {}),
         ...(vocabulary?.length ? { customVocabulary: vocabulary.slice(0, 1000) } : {}),
       },
+      // Finalize a spoken turn soon after a natural pause instead of waiting for a long
+      // silence, so speech comes through as several small finals (each translated as it
+      // lands) rather than one huge block translated only once the speaker stops for a while.
+      realtimeInputConfig: {
+        automaticActivityDetection: {
+          silenceDurationMs: Number(process.env.GEMINI_SILENCE_MS || 450),
+          prefixPaddingMs: Number(process.env.GEMINI_PREFIX_PADDING_MS || 150),
+        },
+      },
     };
     this.connecting = (async () => {
       try {

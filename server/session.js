@@ -15,6 +15,13 @@ export class LiveSession {
     this.finals = []; // recent original lines (context for translation)
     this.pending = ''; // accumulating final pieces
     this.pendingTimer = null;
+    // Finals to translate, drained by drainTranslateQueue(). Translating them strictly one
+    // request per final (even in order) can't keep up with a fast, continuous speaker: each
+    // request takes real time, so finals pile up faster than they drain and the backlog only
+    // grows until the speaker pauses. Instead, whatever is still pending when a translation
+    // request is about to start goes out together as ONE batched request per language.
+    this.trPending = [];
+    this.trBusy = false;
     this.partialTr = { text: '', at: 0, busy: false, lastTranslated: null };
     this.startedAt = Date.now();
     this.source = null; // 'browser' | 'ingest' | null
@@ -94,15 +101,25 @@ export class LiveSession {
       // The engine's interim hypothesis is cumulative for the current turn and may
       // repeat text that was already finalized: show only what is not final yet.
       const rest = this.stripFinalized(e.text);
-      const full = (this.pending ? this.pending + ' ' : '') + rest;
+      // Don't wait for the engine's own end-of-speech signal to commit a sentence: for a
+      // fluent speaker who never leaves a real silence gap, that signal can be very late or
+      // may not fire for a long time. As soon as a full stop appears in the still-unconfirmed
+      // text AND the next sentence has visibly started, cut there and send that sentence to
+      // translation right now — see flushFromPartial(). This trades a small risk of the
+      // interim ASR revising an already-shown word for captions that keep up with speech.
+      const tail = this.flushFromPartial(rest, lang);
+      const full = (this.pending ? this.pending + ' ' : '') + tail;
       if (!full.trim()) return;
       this.hub.partial(this.id, full, lang, this.partialTr.lastTranslated || null);
       this.maybeTranslatePartial(full, lang);
       return;
     }
-    // final piece
-    this.turnFinal = (this.turnFinal || '') + norm(e.text);
-    this.pending = (this.pending ? this.pending + ' ' : '') + e.text.trim();
+    // final piece — the engine doesn't know we may have already promoted part of this text
+    // straight out of the interim hypothesis above, so drop whatever overlap there is first.
+    const deduped = this.stripAlreadyFinal(e.text);
+    this.turnFinal = (this.turnFinal || '') + norm(deduped);
+    this.pending = (this.pending ? this.pending + ' ' : '') + deduped.trim();
+    this.flushCompleteSentences(lang);
     clearTimeout(this.pendingTimer);
     if (e.finished === false) {
       this.pendingTimer = setTimeout(() => this.flushFinal(lang), 1200);
@@ -127,24 +144,103 @@ export class LiveSession {
     return words.slice(i).join(' ');
   }
 
+  /** Cut complete sentences straight out of the still-unconfirmed interim hypothesis and
+   * emit them immediately (marking them in turnFinal so stripFinalized/stripAlreadyFinal
+   * know they're already shown). Returns whatever incomplete tail is left to keep displaying
+   * as a live partial. */
+  flushFromPartial(rest, lang) {
+    const boundary = /[.!?…]\s+(?=[A-ZÁÉÍÓÚÑ¿¡"(])/;
+    for (;;) {
+      const m = boundary.exec(rest);
+      if (!m) break;
+      const cut = m.index + 1;
+      const sentence = rest.slice(0, cut).trim();
+      rest = rest.slice(cut).trim();
+      if (!sentence) continue;
+      this.turnFinal = (this.turnFinal || '') + norm(sentence);
+      const lg = this.resolveLang(sentence, lang);
+      this.emitFinal(sentence, lg);
+    }
+    return rest;
+  }
+
+  /** A genuine final event from the engine can restate text we already promoted early from
+   * the interim hypothesis (flushFromPartial): strip that overlap so it isn't shown twice. */
+  stripAlreadyFinal(text) {
+    const n = norm(text);
+    const f = (this.turnFinal || '').slice(-400);
+    if (!f || !n) return text;
+    let k = Math.min(f.length, n.length);
+    for (; k > 0; k--) { if (f.slice(f.length - k) === n.slice(0, k)) break; }
+    if (k === 0) return text;
+    const words = text.split(/\s+/); let acc = 0, i = 0;
+    for (; i < words.length; i++) {
+      const w = norm(words[i]); const next = acc + w.length;
+      if (next > k) { if (k - acc > w.length / 2) i++; break; }
+      acc = next;
+    }
+    return words.slice(i).join(' ');
+  }
+
+  /** As soon as `pending` holds one full sentence followed by the start of another, cut
+   * it off and emit it now instead of waiting for flushFinal()'s pause-based timer — see
+   * onTranscript(). Leaves any trailing, still-incomplete sentence in `pending`. */
+  flushCompleteSentences(lang) {
+    const boundary = /[.!?…]\s+(?=[A-ZÁÉÍÓÚÑ¿¡"(])/;
+    for (;;) {
+      const m = boundary.exec(this.pending);
+      if (!m) break;
+      const cut = m.index + 1;
+      const sentence = this.pending.slice(0, cut).trim();
+      this.pending = this.pending.slice(cut).trim();
+      if (!sentence) continue;
+      lang = this.resolveLang(sentence, lang);
+      this.emitFinal(sentence, lang);
+    }
+  }
+
   flushFinal(lang) {
     const whole = this.pending.trim();
     this.pending = '';
     if (!whole) return;
-    if (this.def.sourceLang !== 'auto') lang = this.def.sourceLang;
-    else {
-      // Engine language ids can flicker on short segments (e.g. "Hola a todos" -> pt):
-      // combine the engine's code with a cheap stopword detector and a majority vote
-      // over the last few segments, since speakers rarely switch language mid-talk.
-      const guess = detectLang(whole);
-      this.langVotes = [...(this.langVotes || []), lang, guess].filter(Boolean).slice(-6);
-      const counts = {}; for (const l of this.langVotes) counts[l] = (counts[l] || 0) + 1;
-      lang = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || this.lastLang || 'en';
-    }
-    this.lastLang = lang;
+    lang = this.resolveLang(whole, lang);
     // keep subtitle segments readable: split long finals at sentence boundaries
     const parts = whole.length > 110 ? whole.split(/(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÑ¿¡"(])/).filter(Boolean) : [whole];
     for (const text of parts) this.emitFinal(text, lang);
+  }
+
+  /** Resolve which language a chunk of already-final text is in, updating the sticky
+   * majority-vote state used to avoid flickering on short segments. Shared by the
+   * early per-sentence flush and the pause-triggered flush so both use one vote history. */
+  resolveLang(whole, lang) {
+    if (this.def.sourceLang !== 'auto') { this.lastLang = this.def.sourceLang; return this.lastLang; }
+    // Engine language ids can flicker on short segments (e.g. "Hola a todos" -> pt):
+    // combine the engine's code with a cheap stopword detector and a majority vote
+    // over the last few segments, since speakers rarely switch language mid-talk.
+    const guess = detectLang(whole);
+    if (lang && guess && lang === guess && lang !== this.lastLang) {
+      // Both signals independently agree on a language different from the one we're
+      // currently locked to: trust it right away instead of waiting for a slow-moving
+      // majority to catch up — otherwise a deliberate language switch (e.g. answering a
+      // question in another language) stays mislabeled, and therefore untranslated, for
+      // several sentences.
+      this.langVotes = [lang, lang];
+      this._guessStreak = null;
+    } else if (guess && guess !== this.lastLang) {
+      // The engine's own code disagreed or was missing, but the text-based detector alone
+      // is consistently pointing at a different language two segments in a row: trust that
+      // too, rather than requiring the (possibly stuck or noisy) engine code to agree.
+      this._guessStreak = this._guessStreak?.lang === guess ? { lang: guess, n: this._guessStreak.n + 1 } : { lang: guess, n: 1 };
+      if (this._guessStreak.n >= 2) { this.langVotes = [guess, guess]; this._guessStreak = null; }
+      else this.langVotes = [...(this.langVotes || []), lang, guess].filter(Boolean).slice(-6);
+    } else {
+      this._guessStreak = null;
+      this.langVotes = [...(this.langVotes || []), lang, guess].filter(Boolean).slice(-6);
+    }
+    const counts = {}; for (const l of this.langVotes) counts[l] = (counts[l] || 0) + 1;
+    lang = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || this.lastLang || 'en';
+    this.lastLang = lang;
+    return lang;
   }
 
   emitFinal(text, lang) {
@@ -159,14 +255,53 @@ export class LiveSession {
     // same-language target: original doubles as caption
     for (const l of this.def.targetLangs) if (l === lang) this.hub.translation(this.id, seg.id, l, text);
     if (!targets.length) return;
-    const t0 = Date.now();
-    this.translator.translateMany(text, targets, this.finals.slice(0, -1))
-      .then((tr) => {
-        this.metrics.trCount++; this.metrics.trMsTotal += Date.now() - t0;
-        for (const [l, t] of Object.entries(tr)) this.hub.translation(this.id, seg.id, l, t);
-        this.append({ id: seg.id, tr });
-      })
-      .catch((err) => { this.metrics.trErrors++; this.log('translate', String(err?.message || err).slice(0, 160)); });
+    this.trPending.push({ seg, text, targets });
+    this.drainTranslateQueue();
+  }
+
+  /** Translate whatever is queued, one request at a time, batching everything that piled up
+   * since the last request started. Catching up after a burst of speech takes one request
+   * per pending language instead of one per pending final — capped at MAX_BATCH lines per
+   * request, because asking the model to translate too many lines in one shot risks it
+   * losing track of which line is which (seen once: a translation drifting mid-sentence
+   * into the wrong language after a long batch). */
+  async drainTranslateQueue() {
+    const MAX_BATCH = 4;
+    if (this.trBusy) return;
+    this.trBusy = true;
+    try {
+      while (this.trPending.length) {
+        const batch = this.trPending.splice(0, Math.max(1, MAX_BATCH));
+        const t0 = Date.now();
+        if (batch.length === 1) {
+          const { seg, text, targets } = batch[0];
+          try {
+            const tr = await this.translator.translateMany(text, targets, this.finals.slice(0, -1));
+            this.metrics.trCount++; this.metrics.trMsTotal += Date.now() - t0;
+            for (const [l, t] of Object.entries(tr)) this.hub.translation(this.id, seg.id, l, t);
+            this.append({ id: seg.id, tr });
+          } catch (err) { this.metrics.trErrors++; this.log('translate', String(err?.message || err).slice(0, 160)); }
+          continue;
+        }
+        // Backlog: one translateBatch call per language (up to MAX_BATCH pending texts, that
+        // language) — still N requests, but N = number of languages, not number of pending finals.
+        const langs = [...new Set(batch.flatMap((b) => b.targets))];
+        const texts = batch.map((b) => b.text);
+        try {
+          const perLang = await Promise.all(langs.map(async (l) => [l, await this.translator.translateBatch(texts, l)]));
+          this.metrics.trCount += batch.length; this.metrics.trMsTotal += Date.now() - t0;
+          batch.forEach((b, i) => {
+            const tr = {};
+            for (const [l, arr] of perLang) if (b.targets.includes(l)) tr[l] = arr[i];
+            for (const [l, t] of Object.entries(tr)) this.hub.translation(this.id, b.seg.id, l, t);
+            this.append({ id: b.seg.id, tr });
+          });
+          this.log('translate', `catching up: ${batch.length} finales agrupados en ${langs.length} pedido(s)${this.trPending.length ? `, quedan ${this.trPending.length}` : ''}`);
+        } catch (err) { this.metrics.trErrors += batch.length; this.log('translate', `batch: ${String(err?.message || err).slice(0, 160)}`); }
+      }
+    } finally {
+      this.trBusy = false;
+    }
   }
 
   // Translate long-running partials at most every ~2.5 s so the translated view
@@ -181,7 +316,7 @@ export class LiveSession {
     p.busy = true; p.at = Date.now(); p.text = text;
     this.translator.translateMany(text, targets, this.finals)
       .then((tr) => { p.lastTranslated = tr; this.hub.partial(this.id, text, lang, tr); })
-      .catch(() => {})
+      .catch((err) => { this.metrics.trErrors = (this.metrics.trErrors || 0) + 1; this.log('translate', `partial: ${err?.message || err}`.slice(0, 160)); })
       .finally(() => { p.busy = false; });
   }
 
