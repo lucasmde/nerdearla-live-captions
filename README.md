@@ -37,6 +37,7 @@ Transcripción en tiempo real del audio de cada escenario, en el idioma original
 - **Transcripción completa.** Cada sesión deja un `.jsonl` y se puede bajar como SRT, VTT, texto o JSON (`/api/sessions/<id>/transcript.srt?lang=es`) para publicar con el video.
 - **Panel de producción.** `/admin` muestra por sesión: si llega audio, estado del motor, hace cuánto salió el último subtítulo, latencia de traducción, audiencia conectada y errores.
 - **Panel de salas y agenda.** `/admin/sessions` (solo para los mails en `ADMIN_EMAILS`, con login de Google) permite crear salas, editarlas y cargar/editar/borrar charlas de la agenda —título, orador, horario, idioma— sin tocar `sessions.json` a mano ni reiniciar el servidor. Detalle en [docs/MANUAL.md](docs/MANUAL.md#panel-de-salas).
+- **Código de orador por sala.** Sin necesidad de conocer de antemano el mail de quien va a hablar: el panel genera un código de 6 dígitos por sala que, junto con un login de Google/GitHub, habilita a transmitir solo ahí. Detalle en [docs/MANUAL.md](docs/MANUAL.md#codigo-de-orador).
 - **Vocabulario propio.** Nombres de la conferencia, productos y siglas en `sessions.json` (`vocabulary`) para mejorar el reconocimiento.
 - **Sin vendor lock-in.** Motores intercambiables: `ENGINE=mock` para probar sin key, `TRANSLATOR=ollama` para traducir con Gemma local.
 
@@ -123,7 +124,7 @@ Variables de entorno: ver [`.env.example`](.env.example). Las más importantes: 
 
 ## Manual de operación
 
-El paso a paso para producción y operadores de escenario (instalación, sesiones, operación durante el evento, OBS, exportación, problemas frecuentes) está en [docs/MANUAL.md](docs/MANUAL.md), o en PDF con capturas para leer online (GitHub lo muestra en el navegador) o descargar: [docs/manual.pdf](docs/manual.pdf). Video demo: ver la entrega en Devpost.
+El paso a paso para producción y operadores de escenario (instalación, sesiones, operación durante el evento, OBS, exportación, problemas frecuentes) está en [docs/MANUAL.md](docs/MANUAL.md), o en PDF con capturas para leer online (GitHub lo muestra en el navegador) o descargar: [docs/manual.pdf](docs/manual.pdf). La sección [4.1](docs/MANUAL.md#41-guía-paso-a-paso-armar-una-sala-y-ponerla-en-vivo-de-punta-a-punta) trae la guía de punta a punta: admin crea la sala → genera el código de orador → el orador conecta el audio (micrófono o pestaña de streaming) → la audiencia usa todas las funciones. Video demo: ver la entrega en Devpost; el guion de grabación está en [docs/VIDEO_SCRIPT.md](docs/VIDEO_SCRIPT.md).
 
 ## Despliegue para una conferencia (guía)
 

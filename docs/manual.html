@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>Manual de uso ��� Live Captions</title>
+  <title>Manual de uso — Live Captions</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -90,7 +90,7 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">Manual de uso ��� Live Captions</h1>
+<h1 class="title">Manual de uso — Live Captions</h1>
 </header>
 <h1 id="manual-de-uso-live-captions">Manual de uso — Live Captions</h1>
 <p>Guía para el equipo de producción de una conferencia. Cubre la
@@ -297,17 +297,139 @@ href="https://render.com/docs/disks">Render Disk</a> en
 <code>/data</code> con <code>DATA_DIR=/data</code>); sin eso, el próximo
 <code>git push</code>/deploy vuelve a dejar el
 <code>sessions.json</code> del repositorio.</p>
+<h3 id="codigo-de-orador">3.2. Código de orador — habilitar a quien va a
+hablar sin saber su mail de antemano</h3>
+<p><code>SPEAKER_EMAILS</code> (sección 8) sirve cuando de antemano
+sabés el mail de cada orador. En un evento con varias salas y un lineup
+que se arma sobre la marcha, eso no siempre es posible. Para esos casos,
+el panel <code>/admin/sessions</code> puede generar, sala por sala, un
+código temporal que habilita a transmitir sin agregar a nadie a ninguna
+lista:</p>
+<ol type="1">
+<li>En la tarjeta de la sala, apretá <strong>🔑 Código de
+orador</strong>. Aparece un código de 6 dígitos, válido durante 4
+horas.</li>
+<li>Dictáselo (de palabra, por WhatsApp, como sea) a quien va a dar la
+charla en esa sala.</li>
+<li>Esa persona entra a <code>/operator/&lt;id&gt;</code> (el link de
+“operador” de la sala), inicia sesión con Google o GitHub —lo mismo que
+ya hace cualquier oyente para chatear— y carga el código en el cuadro
+<strong>Habilitar como orador de esta sala</strong>.</li>
+<li>A partir de ahí puede transmitir el audio (sección 4.1) <strong>solo
+en esa sala</strong>: el mismo código no sirve para transmitir en
+ninguna otra, y expira solo a las 4 horas.</li>
+</ol>
+<p>Si <code>SPEAKER_EMAILS</code> está vacío (el valor por defecto),
+cualquier cuenta logueada ya puede transmitir en cualquier sala sin
+necesitar código — el código de orador es la forma de acotar eso sin
+tener que armar la lista de mails de antemano.</p>
 <h2 id="operación-durante-el-evento">4. Operación durante el evento</h2>
-<h3 id="antes-de-cada-bloque-de-charlas-operador">4.1 Antes de cada
-bloque de charlas (operador)</h3>
+<h3
+id="guía-paso-a-paso-armar-una-sala-y-ponerla-en-vivo-de-punta-a-punta">4.1
+Guía paso a paso: armar una sala y ponerla en vivo, de punta a
+punta</h3>
+<p>Esta es la secuencia completa, en orden, desde que se crea la sala
+hasta que la audiencia ve los subtítulos. Es la misma que se sigue en el
+video de demo.</p>
+<p><strong>A. El organizador/admin crea la sala</strong> (una vez, antes
+del evento o del bloque de charlas)</p>
+<ol type="1">
+<li>Entra a
+<code>https://captions.miconferencia.org/admin/sessions</code> e inicia
+sesión con una cuenta de <code>ADMIN_EMAILS</code>.</li>
+<li>Completa <strong>Nueva sala</strong>: id (aparece en la URL, ej.
+<code>sala-abasto</code>), nombre, ubicación, color, idioma de origen y
+a qué idiomas traducir. Aprieta <strong>+ Crear sala</strong>.</li>
+<li>Opcional: carga la agenda de esa sala (título, orador, horario) y
+una nota de la fuente de audio prevista.</li>
+<li>Cuando ya sabe quién va a hablar en esa sala, aprieta <strong>🔑
+Código de orador</strong> y le pasa el código de 6 dígitos al orador
+(ver 3.2 arriba). Este paso se puede repetir charla a charla si cambia
+el orador.</li>
+<li>Puede cerrar sesión en cualquier momento con el botón <strong>Cerrar
+sesión</strong> de la cabecera (por ejemplo para probar con otra cuenta
+de Google).</li>
+</ol>
+<p><strong>B. El orador conecta el audio de su charla</strong>, por uno
+de estos dos caminos:</p>
+<ul>
+<li><strong>Camino 1 — Micrófono conectado a la PC</strong> (el caso
+típico: la notebook del orador o del operador de escenario, con la
+salida de la consola de sonido de la sala cableada a su entrada de
+línea, o directamente su propio micrófono):
+<ol type="1">
+<li>Abre <code>/operator/&lt;id&gt;</code> de su sala (se lo pasa el
+organizador junto con el código).</li>
+<li>Si el sistema no lo reconoce todavía como orador, ve el cuadro
+<strong>Habilitar como orador de esta sala</strong>: inicia sesión con
+Google o GitHub y carga el código de 6 dígitos (paso A.4). Si ya es
+orador habilitado (<code>SPEAKER_EMAILS</code> o sesión previa), no ve
+este cuadro y pasa directo al punto siguiente.</li>
+<li>En <strong>Fuente de audio</strong>, elige la entrada correcta del
+desplegable, o aprieta <strong>🎤 Detectar micrófono</strong>: prueba
+cada entrada disponible durante 2 segundos mientras el orador habla, y
+deja seleccionada la que tuvo señal.</li>
+<li>Aprieta <strong>▶ Iniciar con micrófono / entrada</strong>. El
+navegador pide permiso de micrófono la primera vez — aceptar. El medidor
+de nivel debajo se tiene que mover cuando habla.</li>
+<li>Abajo, en <strong>Últimos subtítulos</strong>, aparece en vivo lo
+que el sistema está transcribiendo — así el orador confirma que está
+funcionando antes de arrancar la charla en serio.</li>
+</ol></li>
+<li><strong>Camino 2 — Pestaña de streaming del navegador</strong> (la
+charla llega por Zoom, Meet, YouTube en vivo, o cualquier pestaña con
+audio — no hay micrófono físico conectado a esa PC):
+<ol type="1">
+<li>Mismos pasos B.1 y B.2 de arriba (login + código si hace
+falta).</li>
+<li>Aprieta <strong>▶ Capturar audio de una pestaña</strong>. Chrome
+muestra el selector “Elegir qué compartir” — hay que elegir la pestaña
+correcta (no toda la pantalla) y <strong>tildar “Compartir audio de la
+pestaña”</strong> (si no se tilda, no hay señal).</li>
+<li>El sistema descarta el video y se queda solo con el audio de esa
+pestaña; el resto es igual que el camino 1 (medidor de nivel, preview de
+subtítulos).</li>
+<li>Si el audio sale de un encoder de streaming (RTMP/SRT) y no de una
+pestaña del navegador, se puede evitar la notebook en la sala
+directamente con
+<code>node tools/ingest.js --session &lt;id&gt; --input rtmp://encoder/live/&lt;id&gt; --token $INGEST_TOKEN</code>
+corriendo en el servidor.</li>
+</ol>
+En ambos caminos: dejar esa pestaña abierta y la notebook sin suspender
+durante todo el bloque; si se corta la conexión, la consola reintenta
+sola. Al terminar, apretar <strong>■ Detener</strong>.</li>
+</ul>
+<p><strong>C. El oyente entra a ver los subtítulos</strong>, con todas
+las funciones disponibles (detalladas con capturas en 4.2 a 4.4):</p>
+<ol type="1">
+<li>Abre <code>https://captions.miconferencia.org/</code> (o el QR de la
+sala) y elige la sala y el idioma. Directo a una sala:
+<code>/s/&lt;id&gt;?lang=es</code>.</li>
+<li>Ve los subtítulos en vivo, con <strong>ORIG</strong> para mostrar
+también la frase original y <strong>A−/A+</strong> para el tamaño de
+letra.</li>
+<li>Si llega tarde, ⚙ → <strong>¿Qué me perdí?</strong> le da un resumen
+con IA de lo dicho hasta ese momento, en su idioma.</li>
+<li>Puede cambiar de sala sin volver a la portada (▾ junto al nombre de
+la sala), iniciar sesión con Google/GitHub para chatear, levantar la
+mano y pedir la palabra, activar <strong>Alto contraste</strong> o
+<strong>Pausar para releer</strong>, y exportar o mandarse por mail la
+transcripción de la charla.</li>
+<li>Si inició sesión, puede cerrar sesión o cambiar de cuenta desde su
+tarjeta de cuenta en la cabecera.</li>
+</ol>
+<h3 id="antes-de-cada-bloque-de-charlas-operador-resumen-rápido">4.1.1
+Antes de cada bloque de charlas (operador) — resumen rápido</h3>
 <ol type="1">
 <li>En la notebook del escenario abrí
 <code>https://captions.miconferencia.org/operator/&lt;id&gt;</code>.</li>
 <li>Conectá la salida de la consola de sonido a la entrada de audio de
 la notebook (line-in o interfaz USB). Elegí esa entrada en
 <strong>Fuente de audio</strong>.</li>
-<li>Pegá el <code>INGEST_TOKEN</code> (queda guardado en el
-navegador).</li>
+<li>Si el servidor exige <code>INGEST_TOKEN</code>, pegalo (queda
+guardado en el navegador); si en cambio el organizador te dio un
+<strong>código de orador</strong> (sección 3.2), iniciá sesión y cargalo
+en el cuadro que aparece arriba de todo.</li>
 <li>Apretá <strong>Iniciar</strong>. El medidor de nivel debe moverse
 cuando alguien habla. Si está en cero, revisá la fuente elegida y el
 volumen de la consola.</li>
@@ -543,9 +665,14 @@ en <code>.env</code>. Para Google:</p>
 <li>En la pantalla de bienvenida de la sala aparecen <em>Iniciar sesión
 con Google</em> y <em>Entrar con GitHub</em> (también en ⚙ →
 <em>Yo</em>). El nombre y la foto de la cuenta se muestran en la
-cabecera, en la lista de conectados y en el chat. Para probar en tu PC,
-agregá <code>http://localhost:8080/api/auth/github/callback</code> como
-segunda callback en la OAuth App de GitHub.</li>
+cabecera, en la lista de conectados y en el chat. Cerrar sesión o
+cambiar de cuenta: en la vista de audiencia, tu tarjeta de cuenta en la
+cabecera; en <code>/admin/sessions</code>, el botón <strong>Cerrar
+sesión</strong> de la cabecera; en <code>/operator/&lt;id&gt;</code>,
+<strong>No soy yo, cambiar de cuenta</strong> junto al cuadro de código
+de orador. Para probar en tu PC, agregá
+<code>http://localhost:8080/api/auth/github/callback</code> como segunda
+callback en la OAuth App de GitHub.</li>
 <li><code>GUEST_ACCESS</code> define qué puede hacer quien entra sin
 cuenta cuando hay login configurado: <code>limited</code> (por defecto:
 sólo lee los subtítulos, con un nombre validado; sin chat, mano,
@@ -553,11 +680,14 @@ expositor ni mail — ve un aviso y un botón para iniciar sesión),
 <code>full</code> (igual que una cuenta) u <code>off</code> (obligatorio
 iniciar sesión; equivale a <code>ALLOW_GUESTS=0</code>).
 <code>SPEAKER_EMAILS=ana@conf.org,juan@conf.org</code> limita quién
-puede transmitir como expositor; vacío = cualquiera con sesión.
-<code>ADMIN_EMAILS=vos@gmail.com</code> habilita el <a
-href="#panel-de-salas">panel de salas</a> (sección 3.1) para esos mails;
-vacío = panel deshabilitado. <code>ALLOWED_DOMAINS=tu-dominio.org</code>
-limita quién puede entrar.</li>
+puede transmitir como expositor de antemano; vacío = cualquiera con
+sesión puede (usá entonces el <a href="#codigo-de-orador">código de
+orador</a> de la sección 3.2 si igual querés acotarlo sala por sala, sin
+armar la lista de mails). <code>ADMIN_EMAILS=vos@gmail.com</code>
+habilita el <a href="#panel-de-salas">panel de salas</a> (sección 3.1)
+para esos mails; vacío = panel deshabilitado.
+<code>ALLOWED_DOMAINS=tu-dominio.org</code> limita quién puede
+entrar.</li>
 </ol>
 <h3 id="chat-de-la-sala">Chat de la sala</h3>
 <figure>

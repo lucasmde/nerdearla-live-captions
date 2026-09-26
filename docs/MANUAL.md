@@ -113,13 +113,61 @@ Para no tener que editar `sessions.json` a mano ni reiniciar el servidor, hay un
 
 Los cambios se guardan en un `sessions.json` que vive en `DATA_DIR` (por defecto, la carpeta del proyecto — igual que siempre). En producción, para que las salas y la agenda sobrevivan un redeploy, hace falta un disco persistente montado ahí (por ejemplo un [Render Disk](https://render.com/docs/disks) en `/data` con `DATA_DIR=/data`); sin eso, el próximo `git push`/deploy vuelve a dejar el `sessions.json` del repositorio.
 
+### 3.2. Código de orador — habilitar a quien va a hablar sin saber su mail de antemano {#codigo-de-orador}
+
+`SPEAKER_EMAILS` (sección 8) sirve cuando de antemano sabés el mail de cada orador. En un evento con varias salas y un lineup que se arma sobre la marcha, eso no siempre es posible. Para esos casos, el panel `/admin/sessions` puede generar, sala por sala, un código temporal que habilita a transmitir sin agregar a nadie a ninguna lista:
+
+1. En la tarjeta de la sala, apretá **🔑 Código de orador**. Aparece un código de 6 dígitos, válido durante 4 horas.
+2. Dictáselo (de palabra, por WhatsApp, como sea) a quien va a dar la charla en esa sala.
+3. Esa persona entra a `/operator/<id>` (el link de "operador" de la sala), inicia sesión con Google o GitHub —lo mismo que ya hace cualquier oyente para chatear— y carga el código en el cuadro **Habilitar como orador de esta sala**.
+4. A partir de ahí puede transmitir el audio (sección 4.1) **solo en esa sala**: el mismo código no sirve para transmitir en ninguna otra, y expira solo a las 4 horas.
+
+Si `SPEAKER_EMAILS` está vacío (el valor por defecto), cualquier cuenta logueada ya puede transmitir en cualquier sala sin necesitar código — el código de orador es la forma de acotar eso sin tener que armar la lista de mails de antemano.
+
 ## 4. Operación durante el evento
 
-### 4.1 Antes de cada bloque de charlas (operador)
+### 4.1 Guía paso a paso: armar una sala y ponerla en vivo, de punta a punta
+
+Esta es la secuencia completa, en orden, desde que se crea la sala hasta que la audiencia ve los subtítulos. Es la misma que se sigue en el video de demo.
+
+**A. El organizador/admin crea la sala** (una vez, antes del evento o del bloque de charlas)
+
+1. Entra a `https://captions.miconferencia.org/admin/sessions` e inicia sesión con una cuenta de `ADMIN_EMAILS`.
+2. Completa **Nueva sala**: id (aparece en la URL, ej. `sala-abasto`), nombre, ubicación, color, idioma de origen y a qué idiomas traducir. Aprieta **+ Crear sala**.
+3. Opcional: carga la agenda de esa sala (título, orador, horario) y una nota de la fuente de audio prevista.
+4. Cuando ya sabe quién va a hablar en esa sala, aprieta **🔑 Código de orador** y le pasa el código de 6 dígitos al orador (ver 3.2 arriba). Este paso se puede repetir charla a charla si cambia el orador.
+5. Puede cerrar sesión en cualquier momento con el botón **Cerrar sesión** de la cabecera (por ejemplo para probar con otra cuenta de Google).
+
+**B. El orador conecta el audio de su charla**, por uno de estos dos caminos:
+
+- **Camino 1 — Micrófono conectado a la PC** (el caso típico: la notebook del orador o del operador de escenario, con la salida de la consola de sonido de la sala cableada a su entrada de línea, o directamente su propio micrófono):
+  1. Abre `/operator/<id>` de su sala (se lo pasa el organizador junto con el código).
+  2. Si el sistema no lo reconoce todavía como orador, ve el cuadro **Habilitar como orador de esta sala**: inicia sesión con Google o GitHub y carga el código de 6 dígitos (paso A.4). Si ya es orador habilitado (`SPEAKER_EMAILS` o sesión previa), no ve este cuadro y pasa directo al punto siguiente.
+  3. En **Fuente de audio**, elige la entrada correcta del desplegable, o aprieta **🎤 Detectar micrófono**: prueba cada entrada disponible durante 2 segundos mientras el orador habla, y deja seleccionada la que tuvo señal.
+  4. Aprieta **▶ Iniciar con micrófono / entrada**. El navegador pide permiso de micrófono la primera vez — aceptar. El medidor de nivel debajo se tiene que mover cuando habla.
+  5. Abajo, en **Últimos subtítulos**, aparece en vivo lo que el sistema está transcribiendo — así el orador confirma que está funcionando antes de arrancar la charla en serio.
+
+- **Camino 2 — Pestaña de streaming del navegador** (la charla llega por Zoom, Meet, YouTube en vivo, o cualquier pestaña con audio — no hay micrófono físico conectado a esa PC):
+  1. Mismos pasos B.1 y B.2 de arriba (login + código si hace falta).
+  2. Aprieta **▶ Capturar audio de una pestaña**. Chrome muestra el selector "Elegir qué compartir" — hay que elegir la pestaña correcta (no toda la pantalla) y **tildar "Compartir audio de la pestaña"** (si no se tilda, no hay señal).
+  3. El sistema descarta el video y se queda solo con el audio de esa pestaña; el resto es igual que el camino 1 (medidor de nivel, preview de subtítulos).
+  4. Si el audio sale de un encoder de streaming (RTMP/SRT) y no de una pestaña del navegador, se puede evitar la notebook en la sala directamente con `node tools/ingest.js --session <id> --input rtmp://encoder/live/<id> --token $INGEST_TOKEN` corriendo en el servidor.
+
+  En ambos caminos: dejar esa pestaña abierta y la notebook sin suspender durante todo el bloque; si se corta la conexión, la consola reintenta sola. Al terminar, apretar **■ Detener**.
+
+**C. El oyente entra a ver los subtítulos**, con todas las funciones disponibles (detalladas con capturas en 4.2 a 4.4):
+
+1. Abre `https://captions.miconferencia.org/` (o el QR de la sala) y elige la sala y el idioma. Directo a una sala: `/s/<id>?lang=es`.
+2. Ve los subtítulos en vivo, con **ORIG** para mostrar también la frase original y **A−/A+** para el tamaño de letra.
+3. Si llega tarde, ⚙ → **¿Qué me perdí?** le da un resumen con IA de lo dicho hasta ese momento, en su idioma.
+4. Puede cambiar de sala sin volver a la portada (▾ junto al nombre de la sala), iniciar sesión con Google/GitHub para chatear, levantar la mano y pedir la palabra, activar **Alto contraste** o **Pausar para releer**, y exportar o mandarse por mail la transcripción de la charla.
+5. Si inició sesión, puede cerrar sesión o cambiar de cuenta desde su tarjeta de cuenta en la cabecera.
+
+### 4.1.1 Antes de cada bloque de charlas (operador) — resumen rápido
 
 1. En la notebook del escenario abrí `https://captions.miconferencia.org/operator/<id>`.
 2. Conectá la salida de la consola de sonido a la entrada de audio de la notebook (line-in o interfaz USB). Elegí esa entrada en **Fuente de audio**.
-3. Pegá el `INGEST_TOKEN` (queda guardado en el navegador).
+3. Si el servidor exige `INGEST_TOKEN`, pegalo (queda guardado en el navegador); si en cambio el organizador te dio un **código de orador** (sección 3.2), iniciá sesión y cargalo en el cuadro que aparece arriba de todo.
 4. Apretá **Iniciar**. El medidor de nivel debe moverse cuando alguien habla. Si está en cero, revisá la fuente elegida y el volumen de la consola.
 5. Dejá esa pestaña abierta y la notebook sin suspender durante todo el bloque.
 
@@ -215,8 +263,8 @@ Para GitHub: creá una *OAuth App* en GitHub → Settings → Developer settings
 
 1. En https://console.cloud.google.com/apis/credentials creá un **ID de cliente OAuth** de tipo *Aplicación web*. En *Orígenes autorizados de JavaScript* agregá `https://captions.tu-dominio.org` (y `http://localhost:8080` para probar en tu PC).
 2. Poné el ID en `.env` como `GOOGLE_CLIENT_ID=...` y reiniciá.
-3. En la pantalla de bienvenida de la sala aparecen *Iniciar sesión con Google* y *Entrar con GitHub* (también en ⚙ → *Yo*). El nombre y la foto de la cuenta se muestran en la cabecera, en la lista de conectados y en el chat. Para probar en tu PC, agregá `http://localhost:8080/api/auth/github/callback` como segunda callback en la OAuth App de GitHub.
-4. `GUEST_ACCESS` define qué puede hacer quien entra sin cuenta cuando hay login configurado: `limited` (por defecto: sólo lee los subtítulos, con un nombre validado; sin chat, mano, expositor ni mail — ve un aviso y un botón para iniciar sesión), `full` (igual que una cuenta) u `off` (obligatorio iniciar sesión; equivale a `ALLOW_GUESTS=0`). `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor; vacío = cualquiera con sesión. `ADMIN_EMAILS=vos@gmail.com` habilita el [panel de salas](#panel-de-salas) (sección 3.1) para esos mails; vacío = panel deshabilitado. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
+3. En la pantalla de bienvenida de la sala aparecen *Iniciar sesión con Google* y *Entrar con GitHub* (también en ⚙ → *Yo*). El nombre y la foto de la cuenta se muestran en la cabecera, en la lista de conectados y en el chat. Cerrar sesión o cambiar de cuenta: en la vista de audiencia, tu tarjeta de cuenta en la cabecera; en `/admin/sessions`, el botón **Cerrar sesión** de la cabecera; en `/operator/<id>`, **No soy yo, cambiar de cuenta** junto al cuadro de código de orador. Para probar en tu PC, agregá `http://localhost:8080/api/auth/github/callback` como segunda callback en la OAuth App de GitHub.
+4. `GUEST_ACCESS` define qué puede hacer quien entra sin cuenta cuando hay login configurado: `limited` (por defecto: sólo lee los subtítulos, con un nombre validado; sin chat, mano, expositor ni mail — ve un aviso y un botón para iniciar sesión), `full` (igual que una cuenta) u `off` (obligatorio iniciar sesión; equivale a `ALLOW_GUESTS=0`). `SPEAKER_EMAILS=ana@conf.org,juan@conf.org` limita quién puede transmitir como expositor de antemano; vacío = cualquiera con sesión puede (usá entonces el [código de orador](#codigo-de-orador) de la sección 3.2 si igual querés acotarlo sala por sala, sin armar la lista de mails). `ADMIN_EMAILS=vos@gmail.com` habilita el [panel de salas](#panel-de-salas) (sección 3.1) para esos mails; vacío = panel deshabilitado. `ALLOWED_DOMAINS=tu-dominio.org` limita quién puede entrar.
 
 ### Chat de la sala
 
