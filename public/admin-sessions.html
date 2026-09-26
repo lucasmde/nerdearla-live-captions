@@ -36,6 +36,7 @@
     <div id="gBtn"></div>
   </div>
   <div id="main" style="display:none">
+    <div class="msg" id="scopeNote" style="display:none;background:#1a2a3a;border:1px solid #2c4a63;color:#a9d4ff">Estás viendo y podés administrar solo la o las salas que creaste con esta cuenta — es un espacio de prueba para ver cómo se arma un evento. Las salas del evento real las administra el equipo organizador.</div>
     <div class="card">
       <b class="display" style="font-size:18px">Nueva sala</b>
       <div id="createMsg" class="msg"></div>
@@ -87,7 +88,7 @@ function roomCard(room) {
   return `
   <div class="card" data-room="${room.id}">
     <div class="roomHead">
-      <b class="display" style="font-size:18px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${room.color || 'var(--teal)'};margin-right:8px"></span>${esc(room.name)} <span class="muted" style="font-size:13px;font-weight:400">(${room.id})</span></b>
+      <b class="display" style="font-size:18px"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${room.color || 'var(--teal)'};margin-right:8px"></span>${esc(room.name)} <span class="muted" style="font-size:13px;font-weight:400">(${room.id})</span></b>${room.ownerEmail ? `<span class="muted" style="font-size:12px;margin-left:8px">🧪 sala de prueba de ${esc(room.ownerEmail)}</span>` : ''}
       <div class="toolbar">
         <a class="btn" href="/operator/${room.id}" target="_blank">operador</a>
         <a class="btn" href="/s/${room.id}?lang=es" target="_blank">audiencia</a>
@@ -225,31 +226,34 @@ $('#logoutBtn').onclick = async () => {
 async function boot() {
   me = await (await fetch('/api/me')).json();
   const cfg = await (await fetch('/api/config')).json();
-  if (me && me.isAdmin) {
+  // Cualquier cuenta logueada (Google o GitHub) entra al panel: los mails de ADMIN_EMAILS
+  // ven y administran todas las salas; cualquier otra cuenta puede crear y administrar su
+  // propia sala de prueba, para ver cómo se arma un evento sin depender de nadie más.
+  if (me) {
     $('#main').style.display = 'block';
     $('#whoami').textContent = me.email;
     $('#logoutBtn').style.display = '';
+    $('#scopeNote').style.display = me.isAdmin ? 'none' : 'block';
     load();
     return;
   }
   $('#gate').style.display = 'block';
-  if (!me) {
-    $('#gateMsg').textContent = 'Iniciá sesión con Google para acceder al panel de salas.';
-    if (cfg.googleClientId) {
-      const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
-      s.onload = () => {
-        google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: async (resp) => {
-          await fetch('/api/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
-          location.reload();
-        } });
-        google.accounts.id.renderButton($('#gBtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: 'es' });
-      };
-      document.head.appendChild(s);
-    }
-  } else {
-    $('#gateMsg').textContent = `Tu cuenta (${me.email}) inició sesión pero no tiene permisos de administración. Pedile a quien administra el servidor que agregue tu mail a ADMIN_EMAILS, o cerrá sesión para probar con otra cuenta.`;
-    const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Cerrar sesión / cambiar de cuenta'; b.onclick = $('#logoutBtn').onclick;
-    $('#gBtn').appendChild(b);
+  $('#gateMsg').textContent = 'Iniciá sesión con Google o GitHub para crear tu propia sala de prueba y ver cómo se arma un evento de punta a punta (agenda, código de orador, etc.). No hace falta ser administrador.';
+  if (cfg.googleClientId) {
+    const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => {
+      google.accounts.id.initialize({ client_id: cfg.googleClientId, callback: async (resp) => {
+        await fetch('/api/auth/google', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ credential: resp.credential }) });
+        location.reload();
+      } });
+      google.accounts.id.renderButton($('#gBtn'), { theme: 'filled_black', size: 'large', text: 'signin_with', locale: 'es' });
+    };
+    document.head.appendChild(s);
+  }
+  if (cfg.github) {
+    const a = document.createElement('a'); a.className = 'btn'; a.style.marginTop = '8px'; a.style.display = 'inline-block';
+    a.href = `/api/auth/github?back=${encodeURIComponent(location.pathname)}`; a.textContent = 'Entrar con GitHub';
+    $('#gBtn').appendChild(a);
   }
 }
 boot();

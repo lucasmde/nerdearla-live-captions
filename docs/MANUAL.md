@@ -104,12 +104,13 @@ Después de editar `sessions.json` a mano, reiniciá el servidor (`docker compos
 
 Para no tener que editar `sessions.json` a mano ni reiniciar el servidor, hay un panel web para crear salas y cargar la agenda en caliente:
 
-1. Configurá quién puede entrar: `ADMIN_EMAILS=vos@gmail.com,otro-organizador@gmail.com` en `.env` (o en las variables de entorno del hosting). Vacío = panel deshabilitado para todos.
-2. Necesita el login con Google configurado (`GOOGLE_CLIENT_ID`, ver sección 8) — el panel pide iniciar sesión y solo deja pasar a los mails de `ADMIN_EMAILS`.
+1. `ADMIN_EMAILS=vos@gmail.com,otro-organizador@gmail.com` en `.env` (o en las variables de entorno del hosting) define quién administra **todas** las salas, incluidas las reales del evento. Vacío = nadie tiene ese nivel.
+2. Necesita el login con Google o GitHub configurado (sección 8).
 3. Entrá a `https://tu-dominio/admin/sessions` (hay un link "Salas y agenda" arriba del panel de producción `/admin`).
-4. **Nueva sala**: id (se usa en la URL, ej. `sala-abasto`), nombre, ubicación, color, idioma de origen, a qué idiomas traducir, y una "fuente de audio prevista" — un campo de texto libre (link de Zoom, URL de streaming, `rtmp://...` para `tools/ingest.js`, o simplemente una nota como "pestaña del canal oficial"). Ese campo es solo informativo y queda visible para el operador en `/operator/<id>`; la captura real de audio (micrófono o pestaña) se sigue iniciando en vivo desde ahí, como siempre.
-5. Cada sala ya creada se puede editar (nombre, ubicación, colores, idiomas, fuente de audio) y tiene su propia tabla de agenda: agregá charlas con título, orador, horario de inicio/fin e idioma, y editá o borrá cada una con los botones de la fila. Los nombres de los oradores se suman automáticamente al vocabulario de la sala (mejora el reconocimiento de nombres propios).
-6. Una sala que está recibiendo audio en ese momento no se puede borrar (hay que detener la captura desde el operador primero); sí se puede seguir editando su nombre/agenda mientras está en vivo.
+4. **No hace falta estar en `ADMIN_EMAILS` para probar el panel.** Cualquier cuenta de Google o GitHub que inicie sesión ahí puede crear su propia sala de prueba y armarla de punta a punta —agenda, código de orador, todo— sin pedirle nada a quien administra el evento. Cada cuenta ve y edita solo la o las salas que creó ella misma; nunca las de otra cuenta ni las salas reales del evento (esas quedan protegidas y solo las tocan los mails de `ADMIN_EMAILS`). Es la forma pensada para que un jurado, un compañero de equipo o cualquiera que quiera ver "cómo se arma un evento" lo pruebe sin depender de que el organizador esté disponible para darle el alta.
+5. **Nueva sala**: id (se usa en la URL, ej. `sala-abasto`), nombre, ubicación, color, idioma de origen, a qué idiomas traducir, y una "fuente de audio prevista" — un campo de texto libre (link de Zoom, URL de streaming, `rtmp://...` para `tools/ingest.js`, o simplemente una nota como "pestaña del canal oficial"). Ese campo es solo informativo y queda visible para el operador en `/operator/<id>`; la captura real de audio (micrófono o pestaña) se sigue iniciando en vivo desde ahí, como siempre.
+6. Cada sala ya creada se puede editar (nombre, ubicación, colores, idiomas, fuente de audio) y tiene su propia tabla de agenda: agregá charlas con título, orador, horario de inicio/fin e idioma, y editá o borrá cada una con los botones de la fila. Los nombres de los oradores se suman automáticamente al vocabulario de la sala (mejora el reconocimiento de nombres propios).
+7. Una sala que está recibiendo audio en ese momento no se puede borrar (hay que detener la captura desde el operador primero); sí se puede seguir editando su nombre/agenda mientras está en vivo. Para que nadie deje el servidor lleno de salas de prueba, hay un tope de 60 salas en total y de 6 salas nuevas cada 10 minutos por IP.
 
 Los cambios se guardan en un `sessions.json` que vive en `DATA_DIR` (por defecto, la carpeta del proyecto — igual que siempre). En producción, para que las salas y la agenda sobrevivan un redeploy, hace falta un disco persistente montado ahí (por ejemplo un [Render Disk](https://render.com/docs/disks) en `/data` con `DATA_DIR=/data`); sin eso, el próximo `git push`/deploy vuelve a dejar el `sessions.json` del repositorio.
 
@@ -132,7 +133,7 @@ Esta es la secuencia completa, en orden, desde que se crea la sala hasta que la 
 
 **A. El organizador/admin crea la sala** (una vez, antes del evento o del bloque de charlas)
 
-1. Entra a `https://captions.miconferencia.org/admin/sessions` e inicia sesión con una cuenta de `ADMIN_EMAILS`.
+1. Entra a `https://captions.miconferencia.org/admin/sessions` e inicia sesión con Google o GitHub. Con una cuenta de `ADMIN_EMAILS` administra todas las salas del evento; con cualquier otra cuenta puede crear y administrar su propia sala de prueba para ensayar estos mismos pasos sin pedirle nada a nadie (sección 3.1, punto 4).
 2. Completa **Nueva sala**: id (aparece en la URL, ej. `sala-abasto`), nombre, ubicación, color, idioma de origen y a qué idiomas traducir. Aprieta **+ Crear sala**.
 3. Opcional: carga la agenda de esa sala (título, orador, horario) y una nota de la fuente de audio prevista.
 4. Cuando ya sabe quién va a hablar en esa sala, aprieta **🔑 Código de orador** y le pasa el código de 6 dígitos al orador (ver 3.2 arriba). Este paso se puede repetir charla a charla si cambia el orador.

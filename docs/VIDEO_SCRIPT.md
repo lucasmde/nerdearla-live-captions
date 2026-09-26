@@ -9,6 +9,12 @@ Grabar en 1920×1080, Chrome con el zoom al 100%, ventana maximizada. Subir curs
 resaltado de clicks si el software de grabación lo permite — ayuda mucho a que se entienda
 cada paso en pantalla completa.
 
+Nota para quien mire este video después y quiera probarlo con sus propias manos: no hace
+falta pedirle acceso a nadie. Cualquier cuenta de Google o GitHub puede entrar a
+`/admin/sessions` y crear su propia sala de prueba para repetir exactamente estos pasos
+(sección 3.1 del manual) — solo la administración de las 4 salas reales del evento está
+restringida al equipo organizador.
+
 ## Pestañas a preparar antes de grabar
 
 1. `https://nerdearla-live-captions.onrender.com/` — portada de salas.

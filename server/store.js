@@ -20,6 +20,8 @@ function normalizeAgendaEntry(t = {}) {
   };
 }
 
+const MAX_ROOMS = 60; // cap so anyone-can-create sandbox rooms can't grow sessions.json without bound
+
 function normalizeRoom(s = {}) {
   const agenda = (s.agenda || []).map(normalizeAgendaEntry);
   const speakerNames = agenda.flatMap((t) => t.speaker.split(',').map((x) => x.trim()).filter(Boolean));
@@ -37,6 +39,13 @@ function normalizeRoom(s = {}) {
     targetLangs: [...new Set(targetLangs.map((l) => String(l).trim()).filter(Boolean))],
     vocabulary: [...new Set([...(s.vocabulary || []), ...speakerNames])],
     agenda: agenda.sort((a, b) => (a.day + a.start).localeCompare(b.day + b.start)),
+    // Rooms created by ADMIN_EMAILS accounts (or seeded from sessions.json) leave these empty,
+    // which keeps them manageable only by admins. A room created by any other signed-in
+    // account carries its creator here, so that one account can fully manage (edit/delete/
+    // generate speaker codes for) only the sandbox room(s) it made — never anyone else's,
+    // and never the admin-managed event rooms. See /api/admin/rooms in server/index.js.
+    ownerSub: String(s.ownerSub || '').slice(0, 200),
+    ownerEmail: String(s.ownerEmail || '').slice(0, 200),
   };
 }
 
@@ -79,6 +88,7 @@ export function makeStore({ dataDir, root, sessionsFileOverride } = {}) {
       if (!ID_RE.test(id)) throw new Error('el id de la sala debe tener 2-40 caracteres: minúsculas, números y guiones (ej: sala-abasto)');
       if (data.sessions.some((s) => s.id === id)) throw new Error('ya existe una sala con ese id');
       if (!String(room.name || '').trim()) throw new Error('falta el nombre de la sala');
+      if (data.sessions.length >= MAX_ROOMS) throw new Error(`ya hay ${MAX_ROOMS} salas creadas, el límite de esta instancia — borrá alguna antes de crear otra`);
       const norm = normalizeRoom({ ...room, id, agenda: [] });
       data.sessions.push(norm);
       persist();

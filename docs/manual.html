@@ -260,16 +260,24 @@ servidor (<code>docker compose restart</code>).</p>
 reiniciar el servidor, hay un panel web para crear salas y cargar la
 agenda en caliente:</p>
 <ol type="1">
-<li>Configurá quién puede entrar:
-<code>ADMIN_EMAILS=vos@gmail.com,otro-organizador@gmail.com</code> en
-<code>.env</code> (o en las variables de entorno del hosting). Vacío =
-panel deshabilitado para todos.</li>
-<li>Necesita el login con Google configurado
-(<code>GOOGLE_CLIENT_ID</code>, ver sección 8) — el panel pide iniciar
-sesión y solo deja pasar a los mails de <code>ADMIN_EMAILS</code>.</li>
+<li><code>ADMIN_EMAILS=vos@gmail.com,otro-organizador@gmail.com</code>
+en <code>.env</code> (o en las variables de entorno del hosting) define
+quién administra <strong>todas</strong> las salas, incluidas las reales
+del evento. Vacío = nadie tiene ese nivel.</li>
+<li>Necesita el login con Google o GitHub configurado (sección 8).</li>
 <li>Entrá a <code>https://tu-dominio/admin/sessions</code> (hay un link
 “Salas y agenda” arriba del panel de producción
 <code>/admin</code>).</li>
+<li><strong>No hace falta estar en <code>ADMIN_EMAILS</code> para probar
+el panel.</strong> Cualquier cuenta de Google o GitHub que inicie sesión
+ahí puede crear su propia sala de prueba y armarla de punta a punta
+—agenda, código de orador, todo— sin pedirle nada a quien administra el
+evento. Cada cuenta ve y edita solo la o las salas que creó ella misma;
+nunca las de otra cuenta ni las salas reales del evento (esas quedan
+protegidas y solo las tocan los mails de <code>ADMIN_EMAILS</code>). Es
+la forma pensada para que un jurado, un compañero de equipo o cualquiera
+que quiera ver “cómo se arma un evento” lo pruebe sin depender de que el
+organizador esté disponible para darle el alta.</li>
 <li><strong>Nueva sala</strong>: id (se usa en la URL, ej.
 <code>sala-abasto</code>), nombre, ubicación, color, idioma de origen, a
 qué idiomas traducir, y una “fuente de audio prevista” — un campo de
@@ -287,7 +295,9 @@ se suman automáticamente al vocabulario de la sala (mejora el
 reconocimiento de nombres propios).</li>
 <li>Una sala que está recibiendo audio en ese momento no se puede borrar
 (hay que detener la captura desde el operador primero); sí se puede
-seguir editando su nombre/agenda mientras está en vivo.</li>
+seguir editando su nombre/agenda mientras está en vivo. Para que nadie
+deje el servidor lleno de salas de prueba, hay un tope de 60 salas en
+total y de 6 salas nuevas cada 10 minutos por IP.</li>
 </ol>
 <p>Los cambios se guardan en un <code>sessions.json</code> que vive en
 <code>DATA_DIR</code> (por defecto, la carpeta del proyecto — igual que
@@ -336,7 +346,10 @@ del evento o del bloque de charlas)</p>
 <ol type="1">
 <li>Entra a
 <code>https://captions.miconferencia.org/admin/sessions</code> e inicia
-sesión con una cuenta de <code>ADMIN_EMAILS</code>.</li>
+sesión con Google o GitHub. Con una cuenta de <code>ADMIN_EMAILS</code>
+administra todas las salas del evento; con cualquier otra cuenta puede
+crear y administrar su propia sala de prueba para ensayar estos mismos
+pasos sin pedirle nada a nadie (sección 3.1, punto 4).</li>
 <li>Completa <strong>Nueva sala</strong>: id (aparece en la URL, ej.
 <code>sala-abasto</code>), nombre, ubicación, color, idioma de origen y
 a qué idiomas traducir. Aprieta <strong>+ Crear sala</strong>.</li>

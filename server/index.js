@@ -134,49 +134,79 @@ app.get('/admin', (_req, res) => res.sendFile(path.join(config.root, 'public', '
 app.get('/admin/sessions', (_req, res) => res.sendFile(path.join(config.root, 'public', 'admin-sessions.html')));
 
 // --- Admin panel: create/edit rooms and their agenda (title, orador, horario) ---------
-// Requires being signed in (Google/GitHub) with an email listed in ADMIN_EMAILS.
-function requireAdmin(req, res, next) {
+// Two tiers, so nobody needs Lucas personally online to try the panel:
+//  - ADMIN_EMAILS accounts see and manage every room (including the real event rooms
+//    seeded from sessions.json, which have no owner and so are off-limits to everyone else).
+//  - Any other signed-in Google/GitHub account can create its OWN sandbox room to see how
+//    a room/event is put together end to end (agenda, speaker code, etc.), and can only
+//    ever see/edit/delete the room(s) it created — never someone else's, never the real ones.
+const roomCreateLimiter = rateLimit({ windowMs: 10 * 60_000, max: 6 });
+const ownsRoom = (me, room) => !!me && !!room?.ownerSub && room.ownerSub === me.sub;
+function requireSignedIn(req, res, next) {
   const me = auth.fromRequest(req);
-  if (!auth.isAdmin(me)) return res.status(403).json({ error: 'tu cuenta no tiene permisos de administración' });
+  if (!me) return res.status(401).json({ error: 'Iniciá sesión con Google o GitHub para crear una sala.' });
+  req.me = me;
   next();
 }
-app.get('/api/admin/rooms', requireAdmin, (_req, res) => {
-  res.json({ event: sessionStore.event, timezone: sessionStore.timezone, rooms: sessionStore.list() });
+function requireRoomAccess(req, res, next) {
+  const me = auth.fromRequest(req);
+  const room = sessionStore.get(req.params.id);
+  if (!room) return res.status(404).json({ error: 'esa sala no existe' });
+  if (!auth.isAdmin(me) && !ownsRoom(me, room)) {
+    return res.status(403).json({ error: me ? 'Esa sala la administra otra persona — solo podés editar las que creaste vos.' : 'Iniciá sesión con Google o GitHub.' });
+  }
+  req.me = me; req.room = room;
+  next();
+}
+app.get('/api/admin/rooms', (req, res) => {
+  const me = auth.fromRequest(req);
+  if (!me) return res.status(401).json({ error: 'Iniciá sesión con Google o GitHub.' });
+  const isAdm = auth.isAdmin(me);
+  const rooms = isAdm ? sessionStore.list() : sessionStore.list().filter((r) => ownsRoom(me, r));
+  res.json({ event: sessionStore.event, timezone: sessionStore.timezone, rooms, isAdmin: isAdm });
 });
-app.post('/api/admin/rooms', requireAdmin, (req, res) => {
-  try { const room = sessionStore.create(req.body || {}); syncSessionsFromStore(); res.json(room); }
-  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+app.post('/api/admin/rooms', roomCreateLimiter, requireSignedIn, (req, res) => {
+  try {
+    // Only an ADMIN_EMAILS account can create an "official" (ownerless) room; anyone else
+    // creating one always becomes its sole owner, regardless of what the request body says.
+    const owner = auth.isAdmin(req.me) ? {} : { ownerSub: req.me.sub, ownerEmail: req.me.email };
+    const room = sessionStore.create({ ...(req.body || {}), ...owner });
+    syncSessionsFromStore(); res.json(room);
+  } catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
 });
-app.patch('/api/admin/rooms/:id', requireAdmin, (req, res) => {
-  try { const room = sessionStore.update(req.params.id, req.body || {}); syncSessionsFromStore(); res.json(room); }
-  catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
+app.patch('/api/admin/rooms/:id', requireRoomAccess, (req, res) => {
+  try {
+    const patch = { ...(req.body || {}) };
+    if (!auth.isAdmin(req.me)) { delete patch.ownerSub; delete patch.ownerEmail; } // can't reassign/steal ownership
+    const room = sessionStore.update(req.params.id, patch); syncSessionsFromStore(); res.json(room);
+  } catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
 });
-app.delete('/api/admin/rooms/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/rooms/:id', requireRoomAccess, (req, res) => {
   const live = sessions.get(req.params.id);
   if (live?.source) return res.status(409).json({ error: 'esa sala está recibiendo audio ahora mismo — detené la captura desde el operador antes de borrarla' });
   try { sessionStore.remove(req.params.id); syncSessionsFromStore(); res.json({ ok: true }); }
   catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
 });
-app.post('/api/admin/rooms/:id/agenda', requireAdmin, (req, res) => {
+app.post('/api/admin/rooms/:id/agenda', requireRoomAccess, (req, res) => {
   try { const entry = sessionStore.addAgenda(req.params.id, req.body || {}); syncSessionsFromStore(); res.json(entry); }
   catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
 });
-app.patch('/api/admin/rooms/:id/agenda/:idx', requireAdmin, (req, res) => {
+app.patch('/api/admin/rooms/:id/agenda/:idx', requireRoomAccess, (req, res) => {
   try { const agenda = sessionStore.updateAgenda(req.params.id, Number(req.params.idx), req.body || {}); syncSessionsFromStore(); res.json({ agenda }); }
   catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
 });
-app.delete('/api/admin/rooms/:id/agenda/:idx', requireAdmin, (req, res) => {
+app.delete('/api/admin/rooms/:id/agenda/:idx', requireRoomAccess, (req, res) => {
   try { sessionStore.removeAgenda(req.params.id, Number(req.params.idx)); syncSessionsFromStore(); res.json({ ok: true }); }
   catch (e) { res.status(400).json({ error: String(e?.message || e) }); }
 });
-// Generate/consult a one-time speaker code for a room (see roomCodes above).
-app.post('/api/admin/rooms/:id/speaker-code', requireAdmin, (req, res) => {
-  if (!sessionStore.get(req.params.id)) return res.status(404).json({ error: 'esa sala no existe' });
+// Generate/consult a one-time speaker code for a room (see roomCodes above). Same access
+// rule: the room's owner (or an admin) can generate one for it, nobody else.
+app.post('/api/admin/rooms/:id/speaker-code', requireRoomAccess, (_req, res) => {
   const entry = { code: genSpeakerCode(), expiresAt: Date.now() + CODE_TTL_MS };
-  roomCodes.set(req.params.id, entry);
+  roomCodes.set(_req.params.id, entry);
   res.json(entry);
 });
-app.get('/api/admin/rooms/:id/speaker-code', requireAdmin, (req, res) => {
+app.get('/api/admin/rooms/:id/speaker-code', requireRoomAccess, (req, res) => {
   const entry = roomCodes.get(req.params.id);
   res.json(entry && Date.now() < entry.expiresAt ? entry : null);
 });
