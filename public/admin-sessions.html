@@ -170,7 +170,7 @@ function roomCard(room) {
     <div class="footerlinks">
       <a class="btn" href="/s/${room.id}?lang=es" target="_blank">👀 Audiencia</a>
       <a class="btn" href="/s/${room.id}?lang=es&tv=1" target="_blank">📺 Pantalla + QR</a>
-      <a class="btn" href="/api/sessions/${room.id}/qr.svg" target="_blank">QR</a>
+      <a class="btn" href="/s/${room.id}/qr" target="_blank">🎫 Tarjeta QR</a>
       <a class="btn" href="/api/sessions/${room.id}/transcript.srt?lang=es" target="_blank">⬇️ SRT</a>
       <button class="btn danger" data-del-room="${room.id}" style="margin-left:auto">Borrar sala</button>
     </div>
