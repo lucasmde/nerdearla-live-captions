@@ -169,7 +169,7 @@ app.post('/api/admin/rooms', roomCreateLimiter, requireSignedIn, (req, res) => {
   try {
     // Only an ADMIN_EMAILS account can create an "official" (ownerless) room; anyone else
     // creating one always becomes its sole owner, regardless of what the request body says.
-    const owner = auth.isAdmin(req.me) ? {} : { ownerSub: req.me.sub, ownerEmail: req.me.email };
+    const owner = auth.isAdmin(req.me) ? {} : { ownerSub: req.me.sub, ownerEmail: req.me.email, ownerName: req.me.name || req.me.email };
     const room = sessionStore.create({ ...(req.body || {}), ...owner });
     syncSessionsFromStore(); res.json(room);
   } catch (e) { res.status(400).json({ error: String(e?.message || e) }); }

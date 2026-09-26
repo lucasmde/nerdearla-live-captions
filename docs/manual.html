@@ -298,6 +298,15 @@ reconocimiento de nombres propios).</li>
 seguir editando su nombre/agenda mientras está en vivo. Para que nadie
 deje el servidor lleno de salas de prueba, hay un tope de 60 salas en
 total y de 6 salas nuevas cada 10 minutos por IP.</li>
+<li><strong>Fecha y hora del evento</strong> (campo opcional, al crear o
+editar la sala): sirve para dejar armado hoy un evento que va a pasar
+dentro de semanas o meses. La sala queda creada ya mismo, pero en la
+portada (<code>/</code>) no se mezcla con las que están en vivo: aparece
+en una sección aparte, “🗓️ Próximamente”, como una tarjeta con borde
+punteado, cuenta regresiva (“empieza en 5 meses”, después “en 12 días”,
+“en 3 h”…) y quién la creó. Apenas llega la fecha y alguien conecta
+audio real, deja de mostrarse ahí y pasa a las salas en vivo como
+cualquier otra.</li>
 </ol>
 <p>Los cambios se guardan en un <code>sessions.json</code> que vive en
 <code>DATA_DIR</code> (por defecto, la carpeta del proyecto — igual que

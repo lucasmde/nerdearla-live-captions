@@ -225,6 +225,7 @@ export class LiveSession {
     return {
       id: this.id, name: this.def.name, room: this.def.room, color: this.def.color || '', audioNote: this.def.audioNote || '', sourceLang: this.def.sourceLang,
       agenda: this.agendaNow(), talks: (this.def.agenda || []).length,
+      ownerName: this.def.ownerName || '', createdAt: this.def.createdAt || '', scheduledAt: this.def.scheduledAt || '',
       targetLangs: this.def.targetLangs, viewers: this.hub.viewers(this.id),
       status: this.hub.status.get(this.id) || null, source: this.source, segments: this.seq,
       metrics: { ...this.metrics, trAvgMs: this.metrics.trCount ? Math.round(this.metrics.trMsTotal / this.metrics.trCount) : null, audioSeconds: Math.round(this.bytes / 32000) },

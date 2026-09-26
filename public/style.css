@@ -26,6 +26,10 @@ header.top .sub { color: var(--muted); font-size: 13px; }
 .card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--c); }
 .card:nth-child(3n+1) { --c: var(--red); } .card:nth-child(3n+2) { --c: var(--yellow); }
 .card[style*="--c"] { }
+/* "Próximamente": eventos agendados con anticipación, sin audio todavía — se distinguen a
+   propósito de las salas en vivo con borde punteado y sin la franja de color sólida arriba. */
+.card.upcoming { border-style: dashed; opacity: .92; }
+.card.upcoming::before { opacity: .5; }
 .card .cdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--c); margin-right: 8px; vertical-align: middle; }
 .card .talk { background: var(--panel2); border-radius: 10px; padding: 10px 12px; }
 .card .talk .when { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; font-size: 12px; color: var(--red); font-weight: 700; }

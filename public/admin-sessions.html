@@ -54,8 +54,12 @@
         <div class="field wide">Fuente de audio prevista (informativo — la captura real se inicia en vivo desde el operador)
           <input id="c_audioNote" placeholder="ej: pestaña del canal de streaming, link de Zoom, rtmp://... para tools/ingest.js">
         </div>
+        <div class="field">Fecha y hora del evento (opcional)
+          <input id="c_scheduledAt" type="datetime-local">
+        </div>
         <div><button class="btn primary" id="createBtn">+ Crear sala</button></div>
       </div>
+      <p class="muted" style="font-size:12px;margin:8px 0 0">Si le ponés fecha y hora, la sala queda creada ya mismo pero se muestra en la portada como "Próximamente", con cuenta regresiva y tu nombre como creador, separada de las salas en vivo — podés armarla hoy para un evento de dentro de varios meses.</p>
     </div>
     <div id="rooms" style="margin-top:16px;display:flex;flex-direction:column;gap:14px"></div>
   </div>
@@ -64,6 +68,33 @@
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let me = null;
+
+// <input type="datetime-local"> works in the viewer's own local time, with no timezone info.
+// Converting through a real Date at the point of entry/display means the stored value is an
+// unambiguous instant (ISO with real offset) that renders correctly for every viewer's clock,
+// wherever they are — important since this can be set months ahead, for people anywhere.
+function localInputToIso(v) { if (!v) return ''; const d = new Date(v); return Number.isNaN(+d) ? '' : d.toISOString(); }
+function toLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso); if (Number.isNaN(+d)) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function formatCountdown(iso) {
+  const ms = new Date(iso) - Date.now();
+  const fecha = new Date(iso).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
+  if (ms <= 0) return `${fecha} · ya pasó`;
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${fecha} · empieza en ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${fecha} · empieza en ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 60) return `${fecha} · empieza en ${days} días`;
+  const months = Math.round(days / 30);
+  return `${fecha} · empieza en ${months} mes${months === 1 ? '' : 'es'}`;
+}
+function tickCountdowns() { document.querySelectorAll('[data-countdown]').forEach((el) => { el.textContent = '🗓️ ' + formatCountdown(el.dataset.countdown); }); }
+setInterval(tickCountdowns, 30000);
 
 function flash(el, ok, text) { el.className = 'msg ' + (ok ? 'ok' : 'err'); el.textContent = text; el.style.display = 'block'; if (ok) setTimeout(() => { el.style.display = 'none'; }, 2500); }
 async function api(method, url, body) {
@@ -107,8 +138,10 @@ function roomCard(room) {
       </div>
       <div class="field">Traducir a <select class="r_targetLangs" multiple size="3">${langOpts(room.targetLangs)}</select></div>
       <div class="field wide">Fuente de audio prevista <input class="r_audioNote" value="${esc(room.audioNote || '')}" placeholder="ej: rtmp://..., link de Zoom, pestaña del streaming"></div>
+      <div class="field">Fecha y hora del evento <input class="r_scheduledAt" type="datetime-local" value="${toLocalInputValue(room.scheduledAt)}"></div>
       <div><button class="btn primary" data-save-room="${room.id}">Guardar cambios</button></div>
     </div>
+    ${room.scheduledAt ? `<p class="muted" style="font-size:12px;margin:4px 0 0" data-countdown="${esc(room.scheduledAt)}"></p>` : ''}
     <b class="muted" style="font-size:12px;display:block;margin-top:14px">Agenda (${room.agenda.length} charlas)</b>
     <table class="agenda">
       <thead><tr><th>Día</th><th>Inicio</th><th>Fin</th><th>Título</th><th>Orador</th><th>Idioma</th><th></th></tr></thead>
@@ -151,6 +184,7 @@ function bindRoomCard(card, room) {
         sourceLang: card.querySelector('.r_sourceLang').value,
         targetLangs: [...card.querySelector('.r_targetLangs').selectedOptions].map((o) => o.value),
         audioNote: card.querySelector('.r_audioNote').value,
+        scheduledAt: localInputToIso(card.querySelector('.r_scheduledAt').value),
       });
       flash(msg, true, 'Guardado.');
       load();
@@ -200,6 +234,7 @@ async function load() {
   const wrap = $('#rooms');
   wrap.innerHTML = d.rooms.map(roomCard).join('');
   d.rooms.forEach((room) => bindRoomCard(wrap.querySelector(`[data-room="${room.id}"]`), room));
+  tickCountdowns();
 }
 
 $('#createBtn').onclick = async () => {
@@ -208,8 +243,9 @@ $('#createBtn').onclick = async () => {
     await api('POST', '/api/admin/rooms', {
       id: $('#c_id').value.trim().toLowerCase(), name: $('#c_name').value, room: $('#c_room').value, color: $('#c_color').value,
       sourceLang: $('#c_sourceLang').value, targetLangs: [...$('#c_targetLangs').selectedOptions].map((o) => o.value), audioNote: $('#c_audioNote').value,
+      scheduledAt: localInputToIso($('#c_scheduledAt').value),
     });
-    ['c_id', 'c_name', 'c_room', 'c_audioNote'].forEach((id) => { $('#' + id).value = ''; });
+    ['c_id', 'c_name', 'c_room', 'c_audioNote', 'c_scheduledAt'].forEach((id) => { $('#' + id).value = ''; });
     flash(msg, true, 'Sala creada.');
     load();
   } catch (e) { flash(msg, false, e.message); }

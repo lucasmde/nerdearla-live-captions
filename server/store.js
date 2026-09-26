@@ -46,6 +46,13 @@ function normalizeRoom(s = {}) {
     // and never the admin-managed event rooms. See /api/admin/rooms in server/index.js.
     ownerSub: String(s.ownerSub || '').slice(0, 200),
     ownerEmail: String(s.ownerEmail || '').slice(0, 200),
+    ownerName: String(s.ownerName || '').trim().slice(0, 80),
+    // When this room was created (set once, kept across edits) and, optionally, when its
+    // event is meant to start — an ISO datetime a room's creator can set well ahead of time
+    // (the portal shows it as an upcoming "próximamente" pill with a countdown, separate
+    // from rooms that are actually live right now). Both stay empty for old rooms.
+    createdAt: /^\d{4}-\d{2}-\d{2}T/.test(s.createdAt || '') ? s.createdAt : new Date().toISOString(),
+    scheduledAt: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s.scheduledAt || '') ? s.scheduledAt : '',
   };
 }
 

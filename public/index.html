@@ -15,29 +15,65 @@
   <span class="badge" id="engine"><span class="dot"></span><span>…</span></span>
 </header>
 <div class="wrap">
+  <div id="upcomingBlock" style="display:none;margin-bottom:26px">
+    <h2 style="font-family:var(--font-display,inherit);font-size:16px;margin:0 0 10px">🗓️ Próximamente</h2>
+    <div class="grid" id="upcomingGrid"></div>
+  </div>
   <div class="grid" id="grid"></div>
   <p class="muted" style="margin-top:28px;font-size:13px">Open source · <a href="https://github.com/lucasmde/nerdearla-live-captions" id="repo">GitHub</a> · hecho para la Vibeathon de Nerdearla 2026</p>
 </div>
 <script>
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// Una sala con scheduledAt en el futuro es un evento agendado con anticipación (se puede
+// crear hoy uno para dentro de varios meses desde /admin/sessions): se muestra separado de
+// las salas en vivo, como una pastilla propia con cuenta regresiva y quién la creó.
+function formatCountdown(iso) {
+  const ms = new Date(iso) - Date.now();
+  const fecha = new Date(iso).toLocaleString('es-AR', { dateStyle: 'long', timeStyle: 'short' });
+  if (ms <= 0) return `${fecha} · ya empezó`;
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${fecha} · en ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 48) return `${fecha} · en ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 60) return `${fecha} · en ${days} días`;
+  const months = Math.round(days / 30);
+  return `${fecha} · en ${months} mes${months === 1 ? '' : 'es'}`;
+}
+function upcomingCard(s) {
+  const el = document.createElement('div'); el.className = 'card upcoming'; if (s.color) el.style.setProperty('--c', s.color);
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
+      <h3><span class="cdot"></span>${esc(s.name)}</h3><span class="badge" style="background:#3a2f0f;color:#ffce7a"><span class="dot" style="background:#ffce7a"></span>próximamente</span></div>
+    <div class="room">${esc(s.room || '')}${s.ownerName ? ` · creado por ${esc(s.ownerName)}` : ''}</div>
+    <div class="talk" data-countdown="${esc(s.scheduledAt)}"><div class="when">🗓️ ${formatCountdown(s.scheduledAt)}</div></div>
+    <div class="langs">${s.targetLangs.map(l => `<span class="pill" style="opacity:.7">${esc(l)}</span>`).join('')}</div>`;
+  return el;
+}
 async function load() {
   const r = await fetch('/api/sessions'); const d = await r.json();
   document.getElementById('engine').innerHTML = `<span class="dot"></span>${d.engine === 'mock' ? 'modo demo' : 'Gemini'}`;
   const grid = document.getElementById('grid'); grid.innerHTML = '';
+  const upGrid = document.getElementById('upcomingGrid'); upGrid.innerHTML = '';
   if (d.event) { document.getElementById('evt').textContent = d.event + ' · Subtítulos en vivo'; document.getElementById('evtSub').textContent = 'Elegí tu sala y tu idioma · Hora de Buenos Aires, se actualiza solo'; }
-  for (const s of d.sessions) {
+  const now = Date.now();
+  const upcoming = d.sessions.filter((s) => s.scheduledAt && new Date(s.scheduledAt).getTime() > now);
+  const rest = d.sessions.filter((s) => !upcoming.includes(s));
+  document.getElementById('upcomingBlock').style.display = upcoming.length ? 'block' : 'none';
+  upcoming.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)).forEach((s) => upGrid.appendChild(upcomingCard(s)));
+  for (const s of rest) {
     const live = s.status?.live && s.source;
     const el = document.createElement('div'); el.className = 'card'; if (s.color) el.style.setProperty('--c', s.color);
     const ag = s.agenda || {}; const talk = (t, label) => t ? `<div class="talk"><div class="when">${label} · ${t.start}–${t.end}</div><div class="ttl">${esc(t.title)}</div><div class="spk">${esc(t.speaker)}${t.lang ? ` · ${t.lang.toUpperCase()}` : ''}</div></div>` : '';
     el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center">
         <h3><span class="cdot"></span>${esc(s.name)}</h3><span class="badge ${live ? 'live' : 'off'}"><span class="dot"></span>${live ? 'en vivo' : 'sin audio'}</span></div>
-      <div class="room">${esc(s.room || '')} · ${s.viewers} viendo</div>
+      <div class="room">${esc(s.room || '')} · ${s.viewers} viendo${s.ownerName ? ` · creado por ${esc(s.ownerName)}` : ''}</div>
       ${talk(ag.now, 'AHORA') || (ag.next ? '' : (s.talks ? '<div class="talk"><div class="when">SIN CHARLAS AHORA</div></div>' : ''))}${talk(ag.next, 'SIGUE')}
       <div class="langs">${s.targetLangs.map(l => `<a class="pill" href="/s/${s.id}?lang=${l}">${esc(d.langLabels[l] || l)}</a>`).join('')}</div>
       <div class="langs" style="margin-top:8px"><a class="pill" href="/s/${s.id}?lang=es&tv=1" title="Pantalla de sala con QR">📺 pantalla</a><a class="pill" href="/s/${s.id}/qr?lang=es" target="_blank" rel="noopener" title="Tarjeta de la sala: QR grande, charla actual y agenda del día, para proyectar o imprimir">▦ QR</a></div>`;
     grid.appendChild(el);
   }
 }
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 load(); setInterval(load, 5000);
 </script>
 </body>
